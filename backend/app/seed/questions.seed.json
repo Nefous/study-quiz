@@ -1,0 +1,265 @@
+[
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the output of: print(len([1, 2, 3]))?",
+    "choices": {
+      "A": "2",
+      "B": "3",
+      "C": "4",
+      "D": "5"
+    },
+    "correct_answer": "B",
+    "explanation": "The list has three elements."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nprint(1 + 2 * 3)\n```",
+    "choices": null,
+    "correct_answer": "7",
+    "explanation": "Multiplication happens before addition."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "Average time complexity of dictionary key lookup in Python is:",
+    "choices": {
+      "A": "O(1)",
+      "B": "O(log n)",
+      "C": "O(n)",
+      "D": "O(n log n)"
+    },
+    "correct_answer": "A",
+    "explanation": "Hash table average-case lookup is constant time."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Time complexity of a nested loop that runs n times inside another loop of n times is:",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(n^2)",
+      "D": "O(2^n)"
+    },
+    "correct_answer": "C",
+    "explanation": "The total iterations are n * n."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "Which data structure is typically used for BFS traversal?",
+    "choices": {
+      "A": "Stack",
+      "B": "Queue",
+      "C": "Heap",
+      "D": "Set"
+    },
+    "correct_answer": "B",
+    "explanation": "BFS explores level by level using a queue."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "Which data structure provides FIFO order?",
+    "choices": {
+      "A": "Stack",
+      "B": "Queue",
+      "C": "Tree",
+      "D": "Graph"
+    },
+    "correct_answer": "B",
+    "explanation": "Queues are First-In-First-Out."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nnums = [1, 2, 3, 4]\nprint(nums[-1])\n```",
+    "choices": null,
+    "correct_answer": "4",
+    "explanation": "-1 indexes the last element."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Which structure is best for implementing a priority queue?",
+    "choices": {
+      "A": "Array",
+      "B": "Linked List",
+      "C": "Binary Heap",
+      "D": "Hash Map"
+    },
+    "correct_answer": "C",
+    "explanation": "Binary heaps provide efficient insert and extract-min/max."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\narr = [3, 1, 2]\narr.sort()\nprint(arr)\n```",
+    "choices": null,
+    "correct_answer": "[1, 2, 3]",
+    "explanation": "Built-in sort sorts ascending by default."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "Which keyword is used to define a function in Python?",
+    "choices": {
+      "A": "func",
+      "B": "def",
+      "C": "function",
+      "D": "lambda"
+    },
+    "correct_answer": "B",
+    "explanation": "Functions are defined with def."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nprint(\"\".join([\"a\", \"b\", \"c\"]))\n```",
+    "choices": null,
+    "correct_answer": "abc",
+    "explanation": "join concatenates the list of strings."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Time complexity of binary search is:",
+    "choices": {
+      "A": "O(1)",
+      "B": "O(log n)",
+      "C": "O(n)",
+      "D": "O(n log n)"
+    },
+    "correct_answer": "B",
+    "explanation": "Binary search halves the search space."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfor i in range(3):\n    print(i)\n```",
+    "choices": null,
+    "correct_answer": "0\n1\n2",
+    "explanation": "range(3) produces 0,1,2."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "Which is a mutable built-in collection in Python?",
+    "choices": {
+      "A": "tuple",
+      "B": "list",
+      "C": "str",
+      "D": "int"
+    },
+    "correct_answer": "B",
+    "explanation": "Lists are mutable."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "Time complexity of iterating through a list of n elements is:",
+    "choices": {
+      "A": "O(1)",
+      "B": "O(log n)",
+      "C": "O(n)",
+      "D": "O(n log n)"
+    },
+    "correct_answer": "C",
+    "explanation": "Each element is visited once."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Which algorithm is used to find the shortest path in a weighted graph with non-negative weights?",
+    "choices": {
+      "A": "DFS",
+      "B": "BFS",
+      "C": "Dijkstra's algorithm",
+      "D": "Topological sort"
+    },
+    "correct_answer": "C",
+    "explanation": "Dijkstra's algorithm solves this for non-negative weights."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nnums = [1, 2, 3]\nnums.append(4)\nprint(nums)\n```",
+    "choices": null,
+    "correct_answer": "[1, 2, 3, 4]",
+    "explanation": "append adds to the end of the list."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import deque\nd = deque([1, 2, 3])\nd.popleft()\nprint(list(d))\n```",
+    "choices": null,
+    "correct_answer": "[2, 3]",
+    "explanation": "popleft removes the first element."
+  },
+    {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "Which statement creates a set?",
+    "choices": {
+      "A": "{1, 2, 3}",
+      "B": "[1, 2, 3]",
+      "C": "(1, 2, 3)",
+      "D": "{'a': 1}"
+    },
+    "correct_answer": "A",
+    "explanation": "Curly braces with values create a set."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\narr = [1, 2, 3, 4]\nprint(arr[::-1])\n```",
+    "choices": null,
+    "correct_answer": "[4, 3, 2, 1]",
+    "explanation": "Slicing with -1 step reverses the list."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Time complexity of merge sort is:",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(n^2)",
+      "D": "O(2^n)"
+    },
+    "correct_answer": "B",
+    "explanation": "Merge sort has O(n log n) time complexity."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nstack = []\nstack.append(1)\nstack.append(2)\nprint(stack.pop())\n```",
+    "choices": null,
+    "correct_answer": "2",
+    "explanation": "Stacks are LIFO."
+  }
+]
