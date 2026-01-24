@@ -26,7 +26,8 @@ export const topics: { label: string; value: Topic }[] = [
   { label: "Python Core", value: "python_core" },
   { label: "Big O", value: "big_o" },
   { label: "Algorithms", value: "algorithms" },
-  { label: "Data Structures", value: "data_structures" }
+  { label: "Data Structures", value: "data_structures" },
+  { label: "Random", value: "random" }
 ];
 
 export const difficulties: { label: string; value: Difficulty }[] = [
@@ -43,7 +44,8 @@ export const topicLabels: Record<Topic, string> = {
   python_core: "Python Core",
   big_o: "Big O Notation",
   algorithms: "Algorithms",
-  data_structures: "Data Structures"
+  data_structures: "Data Structures",
+  random: "Random"
 };
 
 export const difficultyLabels: Record<Difficulty, string> = {

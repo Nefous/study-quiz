@@ -6,9 +6,8 @@ import type { Difficulty, MetaResponse, QuizMode, Topic } from "../api/types";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
-import Input from "../components/ui/Input";
+import ChoiceChips from "../components/ui/ChoiceChips";
 import Segmented from "../components/ui/Segmented";
-import Slider from "../components/ui/Slider";
 import TopicCards from "../components/ui/TopicCards";
 
 const STORAGE_KEY = "quizSetup";
@@ -103,6 +102,12 @@ export default function Home() {
       setSize(maxSize);
     }
   }, [maxSize, size]);
+
+  useEffect(() => {
+    if (![5, 10, 15].includes(size)) {
+      setSize(10);
+    }
+  }, [size]);
 
   const topicOptions = (meta?.topics || Object.keys(topicLabels)) as Topic[];
   const difficultyOptions = (meta?.difficulties || Object.keys(difficultyLabels)) as Difficulty[];
@@ -230,22 +235,16 @@ export default function Home() {
               <span className="font-medium">Number of questions</span>
               <span className="text-xs text-slate-400">Max {maxSize}</span>
             </div>
-            <Slider
-              min={1}
-              max={maxSize}
+            <ChoiceChips
               value={size}
-              onChange={(event) => setSize(Number(event.target.value))}
+              onChange={setSize}
+              options={[
+                { label: "5", value: 5 },
+                { label: "10", value: 10 },
+                { label: "15", value: 15 }
+              ]}
             />
-            <div className="flex items-center gap-3">
-              <Input
-                type="number"
-                min={1}
-                max={maxSize}
-                value={size}
-                onChange={(event) => setSize(Number(event.target.value))}
-              />
-              <span className="text-xs text-slate-400">questions</span>
-            </div>
+            <p className="text-xs text-slate-400">Questions per quiz</p>
           </div>
         </div>
 

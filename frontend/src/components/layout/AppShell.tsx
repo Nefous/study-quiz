@@ -20,7 +20,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             <Button
               variant="ghost"
               className="border border-white/10 text-white hover:bg-white/10"
-              onClick={() => window.open("https://github.com", "_blank")}
+              onClick={() => window.open("https://github.com/Nefous/study-quiz", "_blank")}
             >
               GitHub
             </Button>

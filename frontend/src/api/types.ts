@@ -1,4 +1,4 @@
-export type Topic = "python_core" | "big_o" | "algorithms" | "data_structures";
+export type Topic = "python_core" | "big_o" | "algorithms" | "data_structures" | "random";
 export type Difficulty = "junior" | "middle";
 export type QuestionType = "mcq" | "code_output";
 export type QuizMode = "practice" | "exam";
