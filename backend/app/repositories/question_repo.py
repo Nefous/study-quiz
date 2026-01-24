@@ -1,9 +1,14 @@
 from sqlalchemy import func, insert, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.question import Question
 from app.schemas.question import QuestionCreateInternal
 from app.utils.enums import Difficulty, QuestionType, Topic
+
+
+def _as_str(value: str | Difficulty | QuestionType | Topic) -> str:
+    return value.value if hasattr(value, "value") else value
 class QuestionRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -73,3 +78,41 @@ class QuestionRepository:
         payload = [item.model_dump(exclude_none=True) for item in items]
         await self.session.execute(insert(Question), payload)
         await self.session.commit()
+
+    async def upsert_questions_by_seed_key(self, items: list[QuestionCreateInternal]) -> int:
+        if not items:
+            return 0
+
+        rows: list[dict[str, object]] = []
+        for item in items:
+            data = item.model_dump(exclude_none=True)
+            rows.append(
+                {
+                    "seed_key": data["seed_key"],
+                    "topic": _as_str(data["topic"]),
+                    "difficulty": _as_str(data["difficulty"]),
+                    "type": _as_str(data["type"]),
+                    "prompt": data["prompt"],
+                    "choices": data.get("choices") or None,
+                    "correct_answer": data["correct_answer"],
+                    "explanation": data.get("explanation"),
+                }
+            )
+
+        stmt = pg_insert(Question).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[Question.seed_key],
+            set_={
+                "topic": stmt.excluded.topic,
+                "difficulty": stmt.excluded.difficulty,
+                "type": stmt.excluded.type,
+                "prompt": stmt.excluded.prompt,
+                "choices": stmt.excluded.choices,
+                "correct_answer": stmt.excluded.correct_answer,
+                "explanation": stmt.excluded.explanation,
+                "updated_at": func.now(),
+            },
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return int(result.rowcount or 0)

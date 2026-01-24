@@ -261,5 +261,1613 @@
     "choices": null,
     "correct_answer": "2",
     "explanation": "Stacks are LIFO."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef f(nums):\n    n = len(nums)\n    s = set(nums)\n    total = 0\n    for x in nums:\n        if (x + 1) in s:\n            j = 0\n            while j < n and (x + j) in s:\n                total += 1\n                j += 1\n    return total\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(n^2)",
+      "D": "O(n^3)"
+    },
+    "correct_answer": "C",
+    "explanation": "Building the set is O(n). In the worst case (e.g., nums contains a full consecutive range), for each x the inner while can run up to n iterations. Membership checks in a set are O(1) average, so the nested work is O(n*n)=O(n^2)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code?\n\n```python\ndef g(a, b):\n    out = []\n    for i, x in enumerate(a):\n        if i % 3 == 0:\n            out.extend(b[:i])\n        else:\n            out.append(x)\n    return len(out)\n```",
+    "choices": null,
+    "correct_answer": "O(n^2)",
+    "explanation": "Let n=len(a), m=len(b). Slicing b[:i] copies i elements => O(i). This happens about n/3 times with i increasing up to n, so total slice cost is sum O(i)=O(n^2) when m>=n. Appends are O(n). Worst-case is O(n^2) (or O(n*m) if m<n, but asked generally/worst with m>=n)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (average-case)?\n\n```python\ndef count_hits(queries, arr):\n    s = set(arr)\n    hits = 0\n    for q in queries:\n        if q in s:\n            hits += 1\n    return hits\n```",
+    "choices": {
+      "A": "O(n+m)",
+      "B": "O(n log n + m)",
+      "C": "O(n*m)",
+      "D": "O(log n + log m)"
+    },
+    "correct_answer": "A",
+    "explanation": "Let n=len(arr), m=len(queries). Building a set from arr is O(n). Each membership test in a set is O(1) average, repeated m times => O(m). Total O(n+m)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef pairs_with_break(matrix):\n    # matrix is a list of rows, each row has m elements\n    n = len(matrix)\n    if n == 0:\n        return 0\n    m = len(matrix[0])\n\n    cnt = 0\n    for i in range(n):\n        for j in range(m):\n            if matrix[i][j] == 0:\n                break\n            cnt += 1\n    return cnt\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(m)",
+      "C": "O(n*m)",
+      "D": "O(n+m)"
+    },
+    "correct_answer": "C",
+    "explanation": "Worst-case occurs when the break never triggers (no zeros), so the inner loop runs m times for each of n rows => O(n*m)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code? Consider worst-case and assume list `pop(0)` is O(k) for list length k.\n\n```python\ndef bfs_like(n):\n    q = list(range(n))\n    seen = set()\n    while q:\n        x = q.pop(0)\n        if x in seen:\n            continue\n        seen.add(x)\n        if x + 1 < n:\n            q.append(x + 1)\n    return len(seen)\n```",
+    "choices": null,
+    "correct_answer": "O(n^2)",
+    "explanation": "The loop runs O(n) times in terms of unique items, but `pop(0)` shifts the remaining list, costing O(k). Over the process, k decreases from ~n to 1, so total shift cost is O(n+(n-1)+...+1)=O(n^2). Set membership/add are O(1) average."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef sort_then_scan(nums):\n    nums = sorted(nums)\n    best = 0\n    run = 1\n    for i in range(1, len(nums)):\n        if nums[i] == nums[i-1]:\n            run += 1\n        else:\n            best = max(best, run)\n            run = 1\n    best = max(best, run)\n    return best\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(n^2)",
+      "D": "O(log n)"
+    },
+    "correct_answer": "B",
+    "explanation": "Sorting dominates: `sorted` is O(n log n). The subsequent single pass is O(n). Total O(n log n)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code?\n\n```python\ndef prefix_sums(nums):\n    out = []\n    s = 0\n    for x in nums:\n        s += x\n        out.append(s)\n    return out\n```",
+    "choices": null,
+    "correct_answer": "O(n)",
+    "explanation": "Single loop over n items. Each addition and append is O(1) amortized, so total O(n)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef nested_slices(a):\n    n = len(a)\n    total = 0\n    for i in range(n):\n        part = a[i:]\n        total += sum(part)\n    return total\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(n^2)",
+      "D": "O(n^3)"
+    },
+    "correct_answer": "C",
+    "explanation": "Each slice a[i:] copies O(n-i) items, and sum(part) also scans O(n-i). So each i costs O(n-i). Total sum over i gives O(n^2)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code? (Assume `in` on a list is linear.)\n\n```python\ndef unique_stable(nums):\n    seen = []\n    out = []\n    for x in nums:\n        if x not in seen:\n            seen.append(x)\n            out.append(x)\n    return out\n```",
+    "choices": null,
+    "correct_answer": "O(n^2)",
+    "explanation": "For each of n elements, `x not in seen` scans up to O(k) where k grows to O(n). Summation 1+2+...+n yields O(n^2). Appends are O(1) amortized."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (average-case)?\n\n```python\ndef group_by_first(words):\n    d = {}\n    for w in words:\n        key = w[0] if w else ''\n        d.setdefault(key, []).append(w)\n    return sorted(d.items())\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(n + k log k)",
+      "D": "O(n^2)"
+    },
+    "correct_answer": "C",
+    "explanation": "Let n=len(words), k=number of distinct first-characters (<=n). Building dict lists is O(n) average due to O(1) dict operations. Sorting d.items() sorts k keys => O(k log k). Total O(n + k log k)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code? Consider worst-case.\n\n```python\ndef early_return_search(rows, target):\n    for r in rows:\n        if target in r:\n            return True\n    return False\n```",
+    "choices": null,
+    "correct_answer": "O(n*m)",
+    "explanation": "Let n=len(rows), m=average row length (list). `target in r` is O(m) worst-case for a list. In worst-case target is absent in all rows, so we do n membership scans => O(n*m). Best-case could be O(m) if found in first row."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef build_map(keys, vals):\n    d = {}\n    for k, v in zip(keys, vals):\n        d[k] = v\n    return d\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(n^2)",
+      "D": "O(1)"
+    },
+    "correct_answer": "A",
+    "explanation": "Let n=min(len(keys), len(vals)). Each assignment into a dict is O(1) average. Loop runs n times => O(n)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef two_inputs(a, b):\n    s = set(b)\n    out = []\n    for x in a:\n        if x in s:\n            out.append(x)\n    out.sort()\n    return out\n```",
+    "choices": {
+      "A": "O(n+m)",
+      "B": "O(n+m+k log k)",
+      "C": "O(n*m)",
+      "D": "O(n log n + m log m)"
+    },
+    "correct_answer": "B",
+    "explanation": "Let n=len(a), m=len(b), k=len(out) (<=n). Building set is O(m). Filtering is O(n) average due to O(1) set membership. Sorting out is O(k log k). Total O(m+n+k log k)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code? (Worst-case)\n\n```python\ndef triangular_break(n):\n    c = 0\n    for i in range(n):\n        for j in range(i, n):\n            if j - i > 10 and (j % 7 == 0):\n                break\n            c += 1\n    return c\n```",
+    "choices": null,
+    "correct_answer": "O(n^2)",
+    "explanation": "The nested loops form a triangular iteration space (roughly n+(n-1)+...+1 = O(n^2)). The break triggers only on some j values; worst-case we can pick n so that break rarely triggers (or not before near the end), keeping total iterations proportional to the triangle => O(n^2)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef shrink_by_half(n):\n    x = n\n    steps = 0\n    while x > 1:\n        x //= 2\n        steps += 1\n    return steps\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(log n)",
+      "C": "O(n log n)",
+      "D": "O(1)"
+    },
+    "correct_answer": "B",
+    "explanation": "Each iteration halves x, so number of iterations is the number of times you can divide by 2 until reaching 1, which is O(log n)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code? Include the impact of slicing.\n\n```python\ndef merge_sort(a):\n    if len(a) <= 1:\n        return a\n    mid = len(a) // 2\n    left = merge_sort(a[:mid])\n    right = merge_sort(a[mid:])\n\n    i = j = 0\n    out = []\n    while i < len(left) and j < len(right):\n        if left[i] <= right[j]:\n            out.append(left[i])\n            i += 1\n        else:\n            out.append(right[j])\n            j += 1\n    out.extend(left[i:])\n    out.extend(right[j:])\n    return out\n```",
+    "choices": null,
+    "correct_answer": "O(n log n)",
+    "explanation": "This is essentially merge sort. The merge step across a level costs O(n). Slicing a[:mid] and a[mid:] copies elements, but across each recursion level, total copied elements sum to O(n). With log n levels, overall time remains O(n log n)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef fib_like(n):\n    if n <= 1:\n        return n\n    return fib_like(n - 1) + fib_like(n - 2)\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(2^n)",
+      "D": "O(log n)"
+    },
+    "correct_answer": "C",
+    "explanation": "The recursion tree branches into two calls for most n, producing an exponential number of calls. The time is O(phi^n), commonly expressed as O(2^n) in Big-O."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code (average-case)?\n\n```python\ndef fib_memo(n, memo=None):\n    if memo is None:\n        memo = {}\n    if n in memo:\n        return memo[n]\n    if n <= 1:\n        memo[n] = n\n    else:\n        memo[n] = fib_memo(n - 1, memo) + fib_memo(n - 2, memo)\n    return memo[n]\n```",
+    "choices": null,
+    "correct_answer": "O(n)",
+    "explanation": "Each value from 0..n is computed once and stored in the dict. Dict lookups are O(1) average, so total distinct computations is O(n), each doing O(1) work besides recursive calls that hit memo."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef has_negative(nums):\n    return any(x < 0 for x in nums)\n```",
+    "choices": {
+      "A": "O(1)",
+      "B": "O(log n)",
+      "C": "O(n)",
+      "D": "O(n log n)"
+    },
+    "correct_answer": "C",
+    "explanation": "In worst-case there is no negative (or it's at the end), so `any` must examine all n elements => O(n). Best-case can be O(1) if the first element is negative."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (amortized)?\n\n```python\ndef append_many(n):\n    a = []\n    for i in range(n):\n        a.append(i)\n    return a\n```",
+    "choices": {
+      "A": "O(n) amortized",
+      "B": "O(n^2) amortized",
+      "C": "O(log n) amortized",
+      "D": "O(1) total"
+    },
+    "correct_answer": "A",
+    "explanation": "List append is O(1) amortized due to occasional resizes. Over n appends, total time is O(n) amortized."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef join_on_key(a, b):\n    # a and b are lists of (key, value)\n    index = {}\n    for k, v in b:\n        index.setdefault(k, []).append(v)\n\n    out = []\n    for k, v in a:\n        if k not in index:\n            continue\n        for w in index[k]:\n            if w == v:\n                break\n            out.append((k, v, w))\n    return out\n```",
+    "choices": null,
+    "correct_answer": "O(m + n*t)",
+    "explanation": "Let n=len(a), m=len(b), and t be the maximum list size in index for any key (in worst-case all b share one key so t=m). Building index is O(m). For each of n items in a, we may iterate through up to t values before breaking (worst-case never breaks early) => O(n*t). Total O(m + n*t), which can be O(m + n*m)=O(nm) in worst-case."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef sort_by_len(words):\n    return sorted(words, key=len)\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(n^2)",
+      "D": "O(log n)"
+    },
+    "correct_answer": "B",
+    "explanation": "Timsort sorting n items is O(n log n) in worst-case. Computing key=len is O(1) per element and cached during sort, adding O(n). Overall O(n log n)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef find_any_pair(a, b):\n    # Return True if any x in a equals any y in b\n    for x in a:\n        for y in b:\n            if x == y:\n                return True\n    return False\n```",
+    "choices": {
+      "A": "O(n+m)",
+      "B": "O(n*m)",
+      "C": "O(n log m)",
+      "D": "O(log n + log m)"
+    },
+    "correct_answer": "B",
+    "explanation": "Worst-case is when no pair matches, so it compares every x with every y: n*m comparisons => O(n*m). Best-case could be O(1) if first pair matches."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code in (1) average-case and (2) worst-case? Provide the Big-O for worst-case.\n\n```python\ndef dedup(nums):\n    s = set()\n    out = []\n    for x in nums:\n        if x not in s:\n            s.add(x)\n            out.append(x)\n    return out\n```",
+    "choices": null,
+    "correct_answer": "O(n^2)",
+    "explanation": "Average-case: set membership/add are O(1), so total O(n). Worst-case: if hashing collapses (pathological collisions), set operations degrade toward O(k) per op, making the loop O(1+2+...+n)=O(n^2). Big-O asked for worst-case: O(n^2)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef bin_search(a, target):\n    lo, hi = 0, len(a) - 1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if a[mid] == target:\n            return mid\n        if a[mid] < target:\n            lo = mid + 1\n        else:\n            hi = mid - 1\n    return -1\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(log n)",
+      "C": "O(n log n)",
+      "D": "O(1)"
+    },
+    "correct_answer": "B",
+    "explanation": "Each iteration halves the search interval, so the number of iterations is O(log n)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef top_k_counts(nums, k):\n    counts = {}\n    for x in nums:\n        counts[x] = counts.get(x, 0) + 1\n\n    items = list(counts.items())\n    items.sort(key=lambda kv: kv[1], reverse=True)\n    return items[:k]\n```",
+    "choices": null,
+    "correct_answer": "O(n + u log u)",
+    "explanation": "Let n=len(nums), u=number of unique elements. Counting with dict is O(n) average. Converting items is O(u). Sorting u pairs is O(u log u). Slicing first k is O(k) but k<=u. Total O(n + u log u)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code?\n\n```python\ndef doubling_nested(n):\n    total = 0\n    i = 1\n    while i <= n:\n        for _ in range(i):\n            total += 1\n        i *= 2\n    return total\n```",
+    "choices": {
+      "A": "O(log n)",
+      "B": "O(n)",
+      "C": "O(n log n)",
+      "D": "O(n^2)"
+    },
+    "correct_answer": "B",
+    "explanation": "The inner work sums 1 + 2 + 4 + ... up to n, which is O(n). The outer loop runs O(log n) times but total inner iterations across all rounds is O(n)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef count_all(nums):\n    d = {}\n    for x in nums:\n        d[x] = nums.count(x)\n    return d\n```",
+    "choices": null,
+    "correct_answer": "O(n^2)",
+    "explanation": "`nums.count(x)` scans the entire list => O(n). It is called once per element in nums => n calls, so O(n*n)=O(n^2). Dict assignments are O(1) average."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef matrix_unique_prefix(rows):\n    seen = set()\n    for r in rows:\n        for x in r:\n            if x in seen:\n                break\n            seen.add(x)\n    return len(seen)\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n*m)",
+      "C": "O(n+m)",
+      "D": "O(m log n)"
+    },
+    "correct_answer": "B",
+    "explanation": "Let n=len(rows), m=max row length. Worst-case occurs when the break never triggers (all unique), so we visit every element once => O(n*m). Set membership/add are O(1) average."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef window_checks(nums, w):\n    s = set(nums)\n    n = len(nums)\n    hits = 0\n    for i in range(0, n, w):\n        chunk = nums[i:i+w]\n        if all((x in s) for x in chunk):\n            hits += 1\n    return hits\n```",
+    "choices": null,
+    "correct_answer": "O(n)",
+    "explanation": "Building the set is O(n). The loop runs about n/w times. Each slice nums[i:i+w] copies up to w elements => O(w), and `all` checks w membership tests => O(w). So each iteration is O(w) and total is (n/w)*w = O(n)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef flatten(tree):\n    # tree is either an int or a list of trees\n    if not isinstance(tree, list):\n        return [tree]\n    out = []\n    for child in tree:\n        out = out + flatten(child)\n    return out\n```",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(n^2)",
+      "D": "O(2^n)"
+    },
+    "correct_answer": "C",
+    "explanation": "Let n be total number of leaves. Although each leaf is processed once, `out = out + ...` creates a new list and copies the current out each time. Summed copying over many concatenations yields quadratic behavior in the total output size, giving O(n^2) in worst-case (e.g., many children at one level)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code?\n\n```python\ndef rolling_min(nums):\n    n = len(nums)\n    out = []\n    for i in range(n):\n        out.append(min(nums[:i+1]))\n    return out\n```",
+    "choices": null,
+    "correct_answer": "O(n^2)",
+    "explanation": "For each i, slicing nums[:i+1] costs O(i) and min over that slice costs O(i). Total per i is O(i), so sum over i=1..n gives O(n^2)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (average-case)?\n\n```python\ndef invert_map(d):\n    inv = {}\n    for k, v in d.items():\n        inv[v] = k\n    return inv\n```",
+    "choices": {
+      "A": "O(1)",
+      "B": "O(n)",
+      "C": "O(n log n)",
+      "D": "O(n^2)"
+    },
+    "correct_answer": "B",
+    "explanation": "Iterating over n items and inserting into a dict is O(n) average (O(1) average per insert)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef process_edges(edges):\n    # edges: list of (u, v)\n    g = {}\n    for u, v in edges:\n        g.setdefault(u, []).append(v)\n\n    keys = sorted(g.keys())\n    for u in keys:\n        g[u].sort()\n    return g\n```",
+    "choices": {
+      "A": "O(E)",
+      "B": "O(E log E)",
+      "C": "O(E + V log V + sum(deg(u) log deg(u)))",
+      "D": "O(V^2)"
+    },
+    "correct_answer": "C",
+    "explanation": "Let E=len(edges), V=number of vertices with outgoing edges. Building adjacency lists is O(E). Sorting keys is O(V log V). Sorting each adjacency list u costs O(deg(u) log deg(u)); total is sum over u. So total O(E + V log V + Σ deg(u) log deg(u)). In dense worst-case, this can be O(E log E)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef first_after_sort(nums, target):\n    nums = sorted(nums)\n    for x in nums:\n        if x >= target:\n            return x\n    return None\n```",
+    "choices": null,
+    "correct_answer": "O(n log n)",
+    "explanation": "Sorting costs O(n log n) and dominates. The scan is O(n) in worst-case (target larger than all elements). Total O(n log n). Best-case after sorting could be O(1) scan, but sort still dominates."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code (average-case)?\n\n```python\ndef union_sizes(a, b):\n    return len(set(a) | set(b))\n```",
+    "choices": null,
+    "correct_answer": "O(n+m)",
+    "explanation": "Building set(a) is O(n), set(b) is O(m). Union of two sets is linear in total elements (inserting from smaller into larger) => O(n+m) average. Computing len is O(1)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef consume_stacks(stacks):\n    # stacks is a list of lists\n    total = 0\n    for st in stacks:\n        while st:\n            total += st.pop()\n    return total\n```",
+    "choices": {
+      "A": "O(k)",
+      "B": "O(k log k)",
+      "C": "O(k^2)",
+      "D": "O(s*k)"
+    },
+    "correct_answer": "A",
+    "explanation": "Let k be the total number of elements across all inner lists. Each pop() from the end of a Python list is O(1) amortized, and every element is popped once, so total O(k)."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef subsets_count(nums):\n    nums = list(nums)\n\n    def dfs(i):\n        if i == len(nums):\n            return 1\n        # choose or skip\n        return dfs(i + 1) + dfs(i + 1)\n\n    return dfs(0)\n```",
+    "choices": null,
+    "correct_answer": "O(2^n)",
+    "explanation": "The recursion makes two calls at each index i until reaching n, generating a full binary recursion tree with about 2^n leaves and O(2^n) total calls."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (worst-case)?\n\n```python\ndef maintain_sorted(nums):\n    a = []\n    for x in nums:\n        a.append(x)\n        a.sort()\n    return a\n```",
+    "choices": {
+      "A": "O(n log n)",
+      "B": "O(n^2)",
+      "C": "O(n^2 log n)",
+      "D": "O(2^n)"
+    },
+    "correct_answer": "C",
+    "explanation": "On iteration i, sorting a list of size i costs O(i log i). Summing over i=1..n gives Σ i log i = O(n^2 log n) in worst-case."
+  },
+  {
+    "topic": "big_o",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the following code (average-case)?\n\n```python\ndef count_common(a, b):\n    # a and b are lists\n    sb = set(b)\n    return sum(1 for x in a if x in sb)\n```",
+    "choices": {
+      "A": "O(n+m)",
+      "B": "O(n*m)",
+      "C": "O(n log m)",
+      "D": "O(log(n+m))"
+    },
+    "correct_answer": "A",
+    "explanation": "Let n=len(a), m=len(b). Building sb is O(m). Each membership check in a set is O(1) average, performed n times => O(n). Total O(n+m)."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef add(x, bucket=[]):\n    bucket.append(x)\n    return bucket\n\na = add(1)\nb = add(2)\nc = add(3, [])\nd = add(4)\n\nprint(a, b, c, d)\n```",
+    "choices": null,
+    "correct_answer": "[1, 2, 4] [1, 2, 4] [3] [1, 2, 4]",
+    "explanation": "The default list `bucket` is created once and reused across calls that don't pass an explicit list. So `add(1)`, `add(2)`, and `add(4)` all mutate the same list, while `add(3, [])` uses a fresh list."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\na = [[0], [1], [2]]\nb = a[:]           # shallow copy\nsame0 = (a[0] is b[0])\n\nb[0].append(\"x\")\nb.append([\"new\"])\na[1] = [\"replaced\"]\n\nprint(same0)\nprint(a)\nprint(b)\n```",
+    "choices": null,
+    "correct_answer": "True\n[[0, 'x'], ['replaced'], [2]]\n[[0, 'x'], [1], [2], ['new']]",
+    "explanation": "Slice copying a list is shallow: `b` is a new outer list, but it references the same inner lists as `a`. Therefore `a[0] is b[0]` is `True`, and mutating that inner list via `b[0].append(...)` is visible in both. Rebinding `a[1]` replaces only that slot in `a`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nd = {\"a\": 1, \"b\": 2, \"c\": 3}\n\ntry:\n    for k in d:\n        if k == \"b\":\n            d[\"x\"] = 99\nexcept Exception as e:\n    print(type(e).__name__)\n\nprint(sorted(d.keys()))\n```",
+    "choices": null,
+    "correct_answer": "RuntimeError\n['a', 'b', 'c', 'x']",
+    "explanation": "Mutating a dict's size while iterating over it raises `RuntimeError`. The key `'x'` was inserted before the runtime detected the size change, so the dict ends up containing `'x'` when we print the sorted keys."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nx = \"global\"\n\ndef outer():\n    x = \"outer\"\n    def inner():\n        nonlocal x\n        x += \"+inner\"\n    inner()\n    return x\n\nprint(outer())\nprint(x)\n```",
+    "choices": null,
+    "correct_answer": "outer+inner\nglobal",
+    "explanation": "`nonlocal x` refers to `x` in the nearest enclosing scope (`outer`), not the global `x`. So the inner function modifies `outer`'s `x`, while the module-level `x` remains unchanged."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\na = [1, 2, 3]\nb = a\nc = a[:]\n\nprint(a == b, a is b)\nprint(a == c, a is c)\n\nc.append(4)\nprint(a)\nprint(c)\n```",
+    "choices": null,
+    "correct_answer": "True True\nTrue False\n[1, 2, 3]\n[1, 2, 3, 4]",
+    "explanation": "`b` is just another reference to the same list object as `a` (`is` is True). `c = a[:]` creates a new list with the same elements (`==` True but `is` False). Appending to `c` doesn't affect `a`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef f():\n    try:\n        return \"try\"\n    finally:\n        return \"finally\"\n\ndef g():\n    try:\n        1 / 0\n    except ZeroDivisionError:\n        return \"except\"\n    finally:\n        print(\"cleanup\")\n\nprint(f(), g())\n```",
+    "choices": null,
+    "correct_answer": "cleanup\nfinally except",
+    "explanation": "`finally` always runs. In `f`, the `return` in `finally` overrides the `return` in `try`. In `g`, the `except` returns `'except'`, but the `finally` still prints `'cleanup'` before the function returns."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nx = \"outer\"\nvals = [x for x in range(3)]\ngen = (x for x in range(2))\nlast = vals[-1]\n\nprint(x)\nprint(last)\nprint(vals)\nprint(list(gen))\nprint(x)\n```",
+    "choices": null,
+    "correct_answer": "outer\n2\n[0, 1, 2]\n[0, 1]\nouter",
+    "explanation": "In Python 3, the loop variable of a comprehension does not leak into the surrounding scope. So `x` remains `'outer'` both before and after consuming the generator. The comprehensions produce the numeric sequences as shown."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndata = [1, 2, 3, 4, 5]\na, *mid, b = data\nsame = (mid is data)\n\nmid.append(99)\ndata[2] = \"X\"\n\nprint(same)\nprint(a, mid, b)\nprint(data)\n```",
+    "choices": null,
+    "correct_answer": "False\n1 [2, 3, 4, 99] 5\n[1, 2, 'X', 4, 5]",
+    "explanation": "Star-unpacking creates a new list for the `*mid` part, so `mid is data` is `False`. Mutating `mid` doesn't affect `data`, and mutating `data` doesn't affect `mid`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is printed when this code runs?\n\n```python\ndef bump(x):\n    x.append(len(x))\n    return x\n\nlst = []\na = lst and bump(lst)\nb = lst or bump(lst)\nc = (b and bump(b)) or \"fallback\"\n\nprint(a)\nprint(b)\nprint(c)\n```",
+    "choices": {
+      "A": "[]\n[0]\n[0, 1]",
+      "B": "[]\n[0]\n[0]",
+      "C": "[0, 1]\n[0, 1]\n[0, 1]",
+      "D": "[0]\n[0]\n[0]"
+    },
+    "correct_answer": "C",
+    "explanation": "`lst and bump(lst)` short-circuits because `lst` is falsy, returning the existing list object. Later expressions call `bump` and mutate that same list in-place, so by the time we print `a`, `b`, and `c`, they all reference the now-mutated list `[0, 1]`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef gen():\n    for i in range(3):\n        yield i\n\ng = gen()\npairs1 = list(zip(g, g))\npairs2 = list(zip(g, range(3)))\n\nprint(pairs1)\nprint(pairs2)\n```",
+    "choices": null,
+    "correct_answer": "[(0, 1)]\n[]",
+    "explanation": "Both arguments to `zip` are the same generator object `g`. `zip(g, g)` advances it twice per iteration, producing only one pair: (0,1), then the generator is exhausted. Reusing `g` again yields nothing, so `pairs2` is empty."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef parse(s):\n    try:\n        n = int(s)\n    except ValueError:\n        return \"bad\"\n    else:\n        return n * 2\n    finally:\n        print(\"done\")\n\nprint(parse(\"5\"))\nprint(parse(\"x\"))\n```",
+    "choices": null,
+    "correct_answer": "done\n10\ndone\nbad",
+    "explanation": "`finally` runs on both the successful and failing paths, so `'done'` is printed twice. The `else` executes only when no exception occurs (`'5'` → 10). On `'x'`, the `except` returns `'bad'`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the output of this code?\n\n```python\ndef items():\n    for x in [1, 0, 2]:\n        print(\"yield\", x)\n        yield x\n\nresult = all(items())\nafter = any([0, \"\", None, 3])\n\nprint(\"result\", result)\nprint(\"after\", after)\n```",
+    "choices": {
+      "A": "yield 1\nyield 0\nyield 2\nresult False\nafter True",
+      "B": "yield 1\nyield 0\nresult False\nafter True",
+      "C": "yield 1\nyield 0\nresult True\nafter True",
+      "D": "result False\nafter True"
+    },
+    "correct_answer": "B",
+    "explanation": "`all()` short-circuits on the first falsy value. The generator yields 1 (truthy), then 0 (falsy) and stops; 2 is never yielded. `any([0, '', None, 3])` becomes True because 3 is truthy."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nd = {}\nshared = []\nfor k in [\"a\", \"b\", \"a\"]:\n    d.setdefault(k, shared).append(k)\n\nd.setdefault(\"c\", []).append(\"c\")\n\nprint(d[\"a\"] is d[\"b\"])\nprint(d[\"b\"] is d[\"c\"])\nprint(d)\n```",
+    "choices": null,
+    "correct_answer": "True\nFalse\n{'a': ['a', 'b', 'a'], 'b': ['a', 'b', 'a'], 'c': ['c']}",
+    "explanation": "`setdefault` stores and returns the exact object you pass as the default. Since both `'a'` and `'b'` use the same `shared` list, they end up referencing the same list (identity True) and share mutations. `'c'` gets its own new list."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ngrid = [[0]] * 3\ngood = [[0] for _ in range(3)]\n\ngrid[0].append(1)\ngrid[1][0] = 9\ngood[0].append(1)\ngood[1][0] = 9\n\nprint(grid)\nprint(good)\n```",
+    "choices": null,
+    "correct_answer": "[[9, 1], [9, 1], [9, 1]]\n[[0, 1], [9], [0]]",
+    "explanation": "`[[0]] * 3` repeats references to the same inner list, so mutating one row mutates them all. A list comprehension creates distinct inner lists, so mutations stay local to each row."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What does this code print?\n\n```python\nlog = []\n\ndef f(x):\n    log.append(x)\n    return x\n\ndef g(a, b):\n    return a - b\n\nresult = g(f(10), f(3))\nprint(result)\nprint(log)\n```",
+    "choices": {
+      "A": "7\n[10, 3]",
+      "B": "7\n[3, 10]",
+      "C": "-7\n[10, 3]",
+      "D": "-7\n[3, 10]"
+    },
+    "correct_answer": "A",
+    "explanation": "Function call arguments are evaluated left-to-right in Python. So `f(10)` runs before `f(3)`, producing `log == [10, 3]`, and then `g(10, 3)` returns 7."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nnums = [1, 2, 3, 4]\nseen = set()\n\ntry:\n    out = [(n2 := n * n) for n in nums if (n2 % 2 == 0)]\nexcept Exception as e:\n    print(type(e).__name__)\n\nprint(\"done\")\nprint(sorted(seen))\n```",
+    "choices": null,
+    "correct_answer": "NameError\ndone\n[]",
+    "explanation": "In a comprehension, the `if` filter is evaluated before the element expression. `n2` is assigned in the element expression `(n2 := n*n)`, but the filter tries to use `n2` first (`n2 % 2 == 0`), so a `NameError` is raised."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef gen():\n    yield 1\n    yield 2\n    raise ValueError(\"boom\")\n\ng = gen()\nprint(next(g))\ntry:\n    print(list(g))\nexcept Exception as e:\n    print(type(e).__name__)\n```",
+    "choices": null,
+    "correct_answer": "1\nValueError",
+    "explanation": "`next(g)` consumes the first yield (1). Then `list(g)` continues from the second yield: it yields 2 and then the generator raises `ValueError`. The exception propagates out of `list()`; we catch it and print its type."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nd = {\"a\": 1, \"b\": 2}\nkeys = d.keys()\nsnapshot = list(keys)\n\nd[\"c\"] = 3\nd[\"a\"] = 99\n\nprint(\"c\" in keys, \"c\" in snapshot)\nprint(snapshot)\nprint(list(keys))\n```",
+    "choices": null,
+    "correct_answer": "True False\n['a', 'b']\n['a', 'b', 'c']",
+    "explanation": "`dict.keys()` returns a dynamic view that reflects later mutations to the dict, while `list(keys)` creates a snapshot at that moment. After inserting `'c'`, the view contains it but the snapshot list does not."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the runtime behavior of this code?\n\n```python\ndef f(*, x, y):\n    return x + y\n\nbase = {\"x\": 1, \"y\": 2}\noverride = {\"y\": 10}\n\ntry:\n    print(f(**base, **override))\nexcept Exception as e:\n    print(type(e).__name__)\n```",
+    "choices": {
+      "A": "It prints 13",
+      "B": "It prints 11",
+      "C": "It raises TypeError",
+      "D": "It raises KeyError"
+    },
+    "correct_answer": "C",
+    "explanation": "When calling a function, providing the same keyword argument more than once (here via `**base` and `**override`) is an error. Python raises `TypeError` for multiple values for the keyword `y`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nlst = [1, 2, 3]\nfor i, x in enumerate(lst):\n    if x == 2:\n        lst[i:i+1] = [20, 21]\n    if x == 3:\n        lst.append(4)\n\nprint(len(lst))\nprint(lst.index(3))\nprint(lst)\n```",
+    "choices": null,
+    "correct_answer": "5\n3\n[1, 20, 21, 3, 4]",
+    "explanation": "`enumerate(lst)` iterates by index and doesn't pre-snapshot the list. Slice assignment replaces one element with two, increasing the list length, so the loop continues and later sees the original `3`, which appends `4`. The final list length is 5 and `3` is at index 3."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfuncs = []\nfor i in range(3):\n    funcs.append(lambda: i)\n\nfixed = []\nfor j in range(3):\n    fixed.append(lambda j=j: j)\n\nprint([f() for f in funcs])\nprint([f() for f in fixed])\n```",
+    "choices": null,
+    "correct_answer": "[2, 2, 2]\n[0, 1, 2]",
+    "explanation": "Closures capture variables by reference, not by value. After the loop, `i` is 2, so all lambdas in `funcs` return 2. Using a default argument (`j=j`) captures the current value each iteration, producing 0,1,2."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nnan1 = float(\"nan\")\nnan2 = float(\"nan\")\n\ns = {nan1}\nprint(nan1 in s)\nprint(nan2 in s)\n\nd = {nan1: \"first\"}\nd[nan2] = \"second\"\nprint(len(d))\n```",
+    "choices": null,
+    "correct_answer": "True\nFalse\n2",
+    "explanation": "`NaN` is not equal to anything, including itself. Membership checks in sets/dicts use hash + equality. `nan1 in s` is True because it's the exact same object stored; `nan2` has `nan2 != nan1`, so it isn't considered equal to the existing key and isn't found. In a dict, assigning `nan2` creates a second distinct key, so length becomes 2."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nd = {True: \"yes\", 1: \"one\", 1.0: \"float\"}\ns = {True, 1, 1.0}\nd[False] = \"no\"\ns.add(False)\n\nprint(True == 1)\nprint(type(True) is int)\nprint(len(d), sorted(d.keys()))\nprint(len(s), sorted(s))\nprint(d[True], d[1], d[False])\n```",
+    "choices": null,
+    "correct_answer": "True\nFalse\n2 [False, True]\n2 [False, True]\nfloat float no",
+    "explanation": "`bool` is a subclass of `int`, and `True == 1` and `False == 0`. Dicts/sets treat keys that are equal and have the same hash as the same key. So `{True:..., 1:..., 1.0:...}` collapses to one key (updated multiple times), while adding `False` creates a second distinct key."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nlst = list(\"abcdef\")\nrev = lst[::-1]\nrev[0] = \"X\"\n\nlst[1:5:2] = [\"1\", \"2\"]\npiece = lst[-2:0:-2]\n\nprint(\"\".join(lst))\nprint(\"\".join(rev))\nprint(\"\".join(piece))\n```",
+    "choices": null,
+    "correct_answer": "a1c2ef\nXedcba\nec",
+    "explanation": "`lst[::-1]` creates a new reversed list, so mutating `rev` doesn't affect `lst`. Slice assignment `lst[1:5:2]` targets indices 1 and 3, replacing them with `'1'` and `'2'`. The final negative-step slice `lst[-2:0:-2]` walks from index -2 down to (but not including) 0 by -2."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nt = ([],)\nsame = (t[0] is t[0])\n\ntry:\n    t[0] += [1, 2]\nexcept Exception as e:\n    print(type(e).__name__)\n\nprint(same)\nprint(t)\nprint(t[0])\n```",
+    "choices": null,
+    "correct_answer": "TypeError\nTrue\n([1, 2],)\n[1, 2]",
+    "explanation": "`t` is immutable (a tuple), so item assignment is not allowed, and `+=` on `t[0]` ends with a `TypeError`. But `t[0]` is a *mutable list*, and the in-place list extension happens before Python attempts to store the updated value back into the tuple slot. So the list is mutated even though the tuple assignment fails."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nd = dict.fromkeys([\"a\", \"b\", \"c\"], [])\ngood = {k: [] for k in [\"a\", \"b\", \"c\"]}\n\nd[\"a\"].append(1)\nd[\"b\"] += [2]\ngood[\"a\"].append(1)\ngood[\"b\"].append(2)\n\nprint(d[\"a\"] is d[\"b\"])\nprint(d)\nprint(good)\n```",
+    "choices": null,
+    "correct_answer": "True\n{'a': [1, 2], 'b': [1, 2], 'c': [1, 2]}\n{'a': [1], 'b': [2], 'c': []}",
+    "explanation": "`dict.fromkeys(..., [])` uses the same list object for every key, so mutations via one key appear under all keys. A comprehension creates a fresh list per key, so each value can be mutated independently."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef outer():\n    acc = []\n    def add(x, box=acc):\n        box.append(x)\n        return box\n    acc = [\"reset\"]\n    r1 = add(1)\n    r2 = add(2)\n    return (r1 is r2), r1, acc\n\nprint(outer())\n```",
+    "choices": null,
+    "correct_answer": "(True, [1, 2], ['reset'])",
+    "explanation": "Default arguments are evaluated at function definition time. So `box=acc` captures the *original* empty list object. Rebinding `acc = ['reset']` doesn't affect that captured default list. Both calls mutate the same captured list, so `r1 is r2` is True and it contains `[1, 2]`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nitems = [\"aa\", \"b\", \"ccc\", \"dd\"]\nseen = []\n\ndef key(s):\n    seen.append(s)\n    return len(s)\n\nout = sorted(items, key=key)\nprint(out)\nprint(seen)\n```",
+    "choices": null,
+    "correct_answer": "['b', 'aa', 'dd', 'ccc']\n['aa', 'b', 'ccc', 'dd']",
+    "explanation": "`sorted(..., key=...)` calls the key function exactly once per element, in the original iteration order, storing the keys. The result is ordered by length; ties preserve original relative order (stable sort), so `'aa'` stays before `'dd'`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ncalls = 0\ndef pred(x):\n    global calls\n    calls += 1\n    return x > 2\n\nxs = [0, 1, 2, 3, 4]\nres = any(pred(x) for x in xs)\n\nprint(res)\nprint(calls)\n```",
+    "choices": null,
+    "correct_answer": "True\n4",
+    "explanation": "`any()` stops at the first truthy predicate result. `pred` is called for 0,1,2,3 (four calls) and returns True at 3, so the generator isn't evaluated further."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the output of this code?\n\n```python\nd1 = {\"a\": 1, \"b\": 2}\nd2 = {\"b\": 20, \"c\": 3}\n\nmerged = {**d1, **d2, \"a\": 10}\nkeys = list(merged.keys())\nvalues = list(merged.values())\n\nprint(keys)\nprint(values)\nprint(merged)\n```",
+    "choices": {
+      "A": "['a', 'b', 'c']\n[1, 20, 3]\n{'a': 1, 'b': 20, 'c': 3}",
+      "B": "['a', 'b', 'c']\n[10, 20, 3]\n{'a': 10, 'b': 20, 'c': 3}",
+      "C": "['b', 'c', 'a']\n[20, 3, 10]\n{'b': 20, 'c': 3, 'a': 10}",
+      "D": "['a', 'b', 'c']\n[10, 2, 3]\n{'a': 10, 'b': 2, 'c': 3}"
+    },
+    "correct_answer": "B",
+    "explanation": "Dict unpacking applies from left to right; later values overwrite earlier ones for the same key. Insertion order preserves the first time each key appeared (`a`, then `b`, then `c`), even though `a` is overwritten at the end."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What does this code print?\n\n```python\nlst = [1, 2]\n\nif lst.append(3):\n    lst.append(99)\nelse:\n    lst.append(0)\n\nflag = lst.extend([4, 5])\nprint(flag)\nprint(lst)\n```",
+    "choices": {
+      "A": "True\n[1, 2, 3, 99, 4, 5]",
+      "B": "None\n[1, 2, 3, 0, 4, 5]",
+      "C": "None\n[1, 2, 3, 99, 4, 5]",
+      "D": "False\n[1, 2, 3, 0, 4, 5]"
+    },
+    "correct_answer": "B",
+    "explanation": "Mutating list methods like `append` and `extend` return `None`. So the `if` condition is falsy and appends 0. `extend` also returns `None`, which is what gets printed."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef add_one(seq):\n    seq += [1]\n    return seq\n\na = [0]\nb = add_one(a)\nc = a + [2]\n\nprint(a is b)\nprint(a)\nprint(b)\nprint(c)\n```",
+    "choices": null,
+    "correct_answer": "True\n[0, 1]\n[0, 1]\n[0, 1, 2]",
+    "explanation": "For lists, `+=` performs an in-place extend (it mutates the original list and returns it). So `a` is mutated and `b` references the same object. By contrast, `a + [2]` creates a new list."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef add_one(t):\n    t += (1,)\n    return t\n\na = (0,)\nb = add_one(a)\n\nprint(a is b)\nprint(a)\nprint(b)\n```",
+    "choices": null,
+    "correct_answer": "False\n(0,)\n(0, 1)",
+    "explanation": "Tuples are immutable, so `t += (1,)` creates a new tuple and rebinds the local name `t`. The original tuple `a` is unchanged, and `a is b` is False."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nnums = [2, 4, 6, 7, 8]\nfor n in nums:\n    if n % 2:\n        print(\"odd\", n)\n        break\nelse:\n    print(\"all even\")\n\nfor n in [2, 4]:\n    if n % 2:\n        break\nelse:\n    print(\"second all even\")\n```",
+    "choices": null,
+    "correct_answer": "odd 7\nsecond all even",
+    "explanation": "A `for ... else` runs the `else` block only if the loop finishes without `break`. The first loop breaks on 7, so its `else` is skipped. The second loop has no break, so its `else` runs."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef f():\n    try:\n        int(\"x\")\n    except ValueError:\n        raise RuntimeError(\"wrap\")\n\ntry:\n    f()\nexcept Exception as e:\n    print(type(e).__name__)\n    print(type(e.__context__).__name__)\n```",
+    "choices": null,
+    "correct_answer": "RuntimeError\nValueError",
+    "explanation": "Raising a new exception in an `except` block sets the original exception as the new exception's `__context__` (implicit chaining). Here, `RuntimeError` is raised while handling a `ValueError`, so `e.__context__` is a `ValueError`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nclass Suppress:\n    def __enter__(self):\n        print(\"enter\")\n    def __exit__(self, exc_type, exc, tb):\n        print(\"exit\", exc_type.__name__ if exc_type else None)\n        return True\n\nwith Suppress():\n    1 / 0\nprint(\"after\")\n```",
+    "choices": null,
+    "correct_answer": "enter\nexit ZeroDivisionError\nafter",
+    "explanation": "`__exit__` receives exception info. Returning `True` tells Python to suppress the exception, so execution continues after the `with` block, printing `after`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nit = iter([1, 2, 3, 4])\na, b = [next(it), next(it)]\nc, *rest = it\n\ntry:\n    print(next(it))\nexcept Exception as e:\n    print(type(e).__name__)\n\nprint(a, b, c)\nprint(rest)\n```",
+    "choices": null,
+    "correct_answer": "StopIteration\n1 2 3\n[4]",
+    "explanation": "`next(it)` consumes from the iterator. After taking 1 and 2, unpacking `c, *rest = it` consumes the remaining items (3 and 4). The iterator is then exhausted, so `next(it)` raises `StopIteration`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is printed by this code?\n\n```python\nvals = [\"a\", \"b\", \"c\"]\nfor i, v in enumerate(vals, start=1):\n    if i == 2:\n        vals.pop(0)\n    if v == \"c\":\n        vals.append(\"d\")\n    print(i, v)\n\nprint(len(vals))\nprint(vals)\n```",
+    "choices": {
+      "A": "1 a\n2 b\n3 c\n3\n['b', 'c', 'd']",
+      "B": "1 a\n2 b\n2\n['b', 'c']",
+      "C": "1 a\n2 b\n2 c\n2\n['b', 'c']",
+      "D": "1 a\n2 b\n2\n['c']"
+    },
+    "correct_answer": "B",
+    "explanation": "The list iterator checks the list length as it goes. When `vals.pop(0)` runs during the second iteration, the list shrinks to length 2 and the internal index advances past the end, so the loop stops early and never visits `'c'`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef bump(x, seen=[]):\n    seen.append(x)\n    return x * 2, list(seen)\n\nm = map(bump, [1, 2, 3])\nfirst = next(m)\nrest = list(m)\n\nprint(first)\nprint(rest)\nprint(bump(0))\n```",
+    "choices": null,
+    "correct_answer": "(2, [1])\n[(4, [1, 2]), (6, [1, 2, 3])]\n(0, [1, 2, 3, 0])",
+    "explanation": "`map` is lazy: `next(m)` computes only the first element. The default list `seen` is shared across all calls to `bump`, so it accumulates values across the `map` consumption and the later direct call `bump(0)`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nhits = 0\ndef side():\n    global hits\n    hits += 1\n    return 99\n\nd = {\"x\": 1}\na = d.get(\"x\", side())\nb = d.get(\"y\", side())\n\nprint(a, b)\nprint(hits)\n```",
+    "choices": null,
+    "correct_answer": "1 99\n2",
+    "explanation": "Function arguments are evaluated before the call. So `side()` runs both times, even though `'x'` exists. `dict.get` then returns 1 for `'x'` and 99 for missing `'y'`, and `hits` ends up as 2."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What is the output of the following code?\n\n```python\na = []\nb = [1]\nc = a or b\nd = b and a\n\nc.append(2)\nprint(c is b, c)\nprint(d is a, d)\n\nprint(a)\nprint(b)\n```",
+    "choices": {
+      "A": "False [1, 2]\nTrue []\n[]\n[1]",
+      "B": "True [1, 2]\nTrue []\n[]\n[1, 2]",
+      "C": "True [1]\nTrue []\n[2]\n[1]",
+      "D": "True [1, 2]\nFalse []\n[]\n[1, 2]"
+    },
+    "correct_answer": "B",
+    "explanation": "`or` and `and` return one of their operands, not a boolean. Since `a` is falsy, `c` becomes the *same list* as `b`, so appending via `c` mutates `b`. Since `b` is truthy, `d` becomes `a`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nclass Box:\n    def __init__(self, x):\n        self.x = x\n    def __eq__(self, other):\n        self.x += 1\n        return self.x == other.x\n\na = Box(1)\nb = Box(2)\nprint(a == b)\nprint(a.x, b.x)\n```",
+    "choices": null,
+    "correct_answer": "True\n2 2",
+    "explanation": "`==` calls `a.__eq__(b)`. This implementation mutates `a.x` before comparing, turning it from 1 to 2, so the comparison becomes True. The mutation remains, so both end up with `x == 2`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nclass Key:\n    def __init__(self, v):\n        self.v = v\n    def __hash__(self):\n        return hash(self.v)\n    def __eq__(self, other):\n        return self.v == other.v\n\nk = Key(1)\ns = {k}\nk.v = 2\n\nprint(k in s)\nprint(len(s))\n```",
+    "choices": null,
+    "correct_answer": "False\n1",
+    "explanation": "Sets rely on an element's hash remaining stable while it's in the set. After inserting `k` (hash based on `v==1`), changing `k.v` changes its hash, so the set can't find it under the new hash and `k in s` becomes False even though the object is still stored."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef fib(n, memo={}):\n    if n in memo:\n        return memo[n]\n    if n < 2:\n        memo[n] = n\n    else:\n        memo[n] = fib(n-1) + fib(n-2)\n    return memo[n]\n\nprint(fib(5))\nprint(sorted(fib.__defaults__[0].items())[:3])\n```",
+    "choices": null,
+    "correct_answer": "5\n[(0, 0), (1, 1), (2, 1)]",
+    "explanation": "The default `memo` dict is created once and reused across calls, effectively caching results. After computing `fib(5)`, the function's default memo contains previously computed Fibonacci numbers, visible via `fib.__defaults__[0]`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nx = 0\ndef f():\n    x = 1\n    locals()[\"x\"] = 99\n    print(\"inside\", x)\n\nf()\nglobals()[\"x\"] = 7\nprint(\"outside\", x)\nprint(\"globals\", globals()[\"x\"])\n```",
+    "choices": null,
+    "correct_answer": "inside 1\noutside 7\nglobals 7",
+    "explanation": "Inside a function, `locals()` returns a snapshot-like mapping; writing to it does not reliably change actual local variables, so `x` stays 1. At module scope, `globals()` is the real global namespace dict, so writing to it changes the global `x` to 7."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\na = []\nb = []\nc = [a]\n\nprint(a == b, a is b)\nprint(a in c, b in c)\nc[0].append(1)\n\nprint(id(a) == id(c[0]))\nprint(a, b, c)\n```",
+    "choices": null,
+    "correct_answer": "True False\nTrue True\nTrue\n[1] [] [[1]]",
+    "explanation": "`a` and `b` are equal (both empty lists) but not identical objects. Membership `x in [a]` uses equality, so both `a` and an equal list `b` are considered 'in' the list. Mutating `c[0]` mutates `a` because it's the same object stored in `c`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nparts = ([1], [2], [3])\ntry:\n    print(sum(parts, ()))\nexcept Exception as e:\n    print(type(e).__name__)\n\nempty = sum([], [])\njoined = sum(parts, [])\nprint(len(empty))\nprint(joined)\n```",
+    "choices": null,
+    "correct_answer": "TypeError\n0\n[1, 2, 3]",
+    "explanation": "`sum` adds elements starting from the `start` value. Using a tuple `()` as `start` with lists triggers `TypeError` because tuple + list is invalid. Using an empty list as `start` concatenates the lists, producing `[1, 2, 3]`. Summing an empty iterable returns the start value unchanged."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\na = [1, 2, 3]\nb = [\"x\", \"y\"]\npairs = list(zip(a, b))\n\nx1, x2 = zip(*pairs)\nprint(pairs)\nprint(x1, x2)\n\nempty_unzip = list(zip(*[]))\nprint(len(empty_unzip), empty_unzip)\n```",
+    "choices": null,
+    "correct_answer": "[(1, 'x'), (2, 'y')]\n(1, 2) ('x', 'y')\n0 []",
+    "explanation": "`zip` stops at the shortest input, so only two pairs are created. Unzipping with `zip(*pairs)` transposes into two tuples. Unzipping an empty list (`zip(*[])`) produces an empty iterator, so converting to a list yields `[]`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nlst = [1, 2, 3, 4]\nit = reversed(lst)\nsnap = list(reversed(lst[:]))\n\nlst[1] = 99\nprint(next(it))\nprint(list(it))\nprint(len(snap))\nprint(snap)\nprint(lst)\n```",
+    "choices": null,
+    "correct_answer": "4\n[3, 99, 1]\n4\n[4, 3, 2, 1]\n[1, 99, 3, 4]",
+    "explanation": "`reversed(lst)` returns an iterator over the *same list*. When you mutate an element (without changing the length), the iterator sees the updated value (99) during iteration. By contrast, reversing a slice `lst[:]` iterates over a copy, so `snap` stays `[4,3,2,1]`."
+  },
+  {
+    "topic": "python_core",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nout = []\nfor i in range(3):\n    try:\n        if i == 1:\n            break\n        out.append(i)\n    finally:\n        out.append(f\"F{i}\")\n\nprint(out)\n```",
+    "choices": null,
+    "correct_answer": "[0, 'F0', 'F1']",
+    "explanation": "`finally` runs even when the loop exits via `break`. For i=0, both `out.append(0)` and the `finally` append occur. For i=1, the `break` happens inside `try`, but the `finally` still appends `'F1'` before the loop terminates."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import deque\n\ndef bfs_layers(graph, start):\n    q = deque([(start, 0)])\n    seen = {start}\n    layers = []\n    while q:\n        node, d = q.popleft()\n        if d == len(layers):\n            layers.append([])\n        layers[d].append(node)\n        for nei in graph.get(node, []):\n            if nei not in seen:\n                seen.add(nei)\n                q.append((nei, d + 1))\n    return layers\n\ng = {\n    \"A\": [\"B\", \"C\"],\n    \"B\": [\"D\", \"E\"],\n    \"C\": [\"F\"],\n    \"D\": [],\n    \"E\": [\"F\"],\n    \"F\": []\n}\n\nprint(bfs_layers(g, \"A\"))\n```\n",
+    "choices": null,
+    "correct_answer": "[['A'], ['B', 'C'], ['D', 'E', 'F']]",
+    "explanation": "Standard BFS by distance: A at layer 0; B,C at layer 1; then D,E,F at layer 2 (F first discovered from C)."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "The function is intended to return the index of the first element strictly greater than `t`. Which statement is true (assume `arr` is sorted ascending and non-empty)?\n\n```python\ndef first_greater(arr, t):\n    lo, hi = 0, len(arr) - 1\n    while lo < hi:\n        mid = (lo + hi) // 2\n        if arr[mid] <= t:\n            lo = mid + 1\n        else:\n            hi = mid\n    return lo\n```\n",
+    "choices": {
+      "A": "It always returns the correct answer, or len(arr) if none exists",
+      "B": "If t is >= the last element, it returns len(arr) - 1 (even though no greater element exists)",
+      "C": "If t is < the first element, it returns len(arr) - 1",
+      "D": "It can get stuck in an infinite loop when duplicates exist"
+    },
+    "correct_answer": "B",
+    "explanation": "When t is >= arr[-1], the loop converges to lo==hi==len(arr)-1 and returns the last index instead of len(arr)."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ngraph = {\"A\": [\"B\"], \"B\": [], \"C\": []}\n\ndef dfs(node, seen=set()):\n    seen.add(node)\n    for nei in graph.get(node, []):\n        if nei not in seen:\n            dfs(nei, seen)\n    return seen\n\nprint(sorted(dfs(\"A\")))\nprint(sorted(dfs(\"C\")))\n```\n",
+    "choices": null,
+    "correct_answer": "['A', 'B']\n['A', 'B', 'C']",
+    "explanation": "The default `seen=set()` is shared across calls. After dfs('A'), seen contains A,B; dfs('C') adds C to the same set."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef min_len(nums, k):\n    left = 0\n    s = 0\n    best = 10**9\n    for right, x in enumerate(nums):\n        s += x\n        while s > k:  # NOTE: '>' (bug) instead of '>='\n            best = min(best, right - left + 1)\n            s -= nums[left]\n            left += 1\n    return 0 if best == 10**9 else best\n\nprint(min_len([2, 3, 1, 2, 4, 3], 7))\n```\n",
+    "choices": null,
+    "correct_answer": "3",
+    "explanation": "Because it only shrinks when sum > 7, it misses windows summing exactly 7. The best it finds has length 3."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "This greedy function tries to make change using the largest coin first. For which amount does it return a non-optimal number of coins?\n\n```python\ndef greedy_change(amount, coins=(1, 3, 4)):\n    count = 0\n    for c in sorted(coins, reverse=True):\n        take = amount // c\n        count += take\n        amount -= take * c\n    return count\n```\n",
+    "choices": {
+      "A": "6",
+      "B": "7",
+      "C": "8",
+      "D": "9"
+    },
+    "correct_answer": "A",
+    "explanation": "For 6, greedy picks 4+1+1 (3 coins) but optimal is 3+3 (2 coins). For 7 and 8 it's optimal with 4s; for 9 it's tied at 3 coins."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nintervals = [(1, 3), (3, 5), (6, 7), (7, 8)]\n\ndef merge(ints):\n    ints = sorted(ints)\n    res = []\n    s, e = ints[0]\n    for a, b in ints[1:]:\n        if a < e:  # BUG: should be <= to merge touching intervals\n            e = max(e, b)\n        else:\n            res.append((s, e))\n            s, e = a, b\n    res.append((s, e))\n    return res\n\nprint(merge(intervals))\n```\n",
+    "choices": null,
+    "correct_answer": "[(1, 3), (3, 5), (6, 7), (7, 8)]",
+    "explanation": "Because it uses `a < e`, intervals that only touch (like (1,3) and (3,5)) are not merged."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef perms(s):\n    res = []\n\n    def bt(path, remaining):\n        if not remaining:\n            res.append(\"\".join(path))\n            return\n        for i, ch in enumerate(remaining):\n            if ch in remaining[:i]:\n                continue\n            bt(path + [ch], remaining[:i] + remaining[i + 1 :])\n            return  # BUG: early termination\n\n    bt([], s)\n    return res\n\nprint(perms(\"aab\"))\n```\n",
+    "choices": null,
+    "correct_answer": "['aab']",
+    "explanation": "The `return` inside the loop stops exploring after the first valid branch, so only one permutation is produced."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Consider this iterative DFS variant. Which statement is correct?\n\n```python\ndef dfs_order(graph, start):\n    stack = [start]\n    seen = set()\n    out = []\n    while stack:\n        node = stack.pop()\n        out.append(node)\n        for nei in graph.get(node, []):\n            if nei not in seen:\n                stack.append(nei)\n        seen.add(node)\n    return out\n```\n",
+    "choices": {
+      "A": "Every node is guaranteed to appear exactly once in `out`",
+      "B": "A node may be pushed onto the stack multiple times if it has multiple incoming edges",
+      "C": "It can enter an infinite loop even if the graph is acyclic",
+      "D": "The output order is always a topological ordering"
+    },
+    "correct_answer": "B",
+    "explanation": "Because `seen` is updated after exploring neighbors, a node reachable via multiple parents can be appended multiple times before it’s first popped and marked seen."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef binary_search(arr, target):\n    lo, hi = 0, len(arr)\n    while lo + 1 < hi:\n        mid = (lo + hi) // 2\n        if arr[mid] == target:\n            return mid\n        if arr[mid] < target:\n            lo = mid\n        else:\n            hi = mid\n    return -1\n\nprint(binary_search([1, 2, 3, 4], 1), binary_search([1, 2, 3, 4], 4), binary_search([1, 2, 3, 4], 3))\n```\n",
+    "choices": null,
+    "correct_answer": "-1 3 2",
+    "explanation": "The loop invariant never checks index 0 after narrowing, so searching for the first element (1) fails and returns -1; the others happen to be found."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the worst-case time complexity of `dijkstra` below in terms of V nodes and E edges (using a binary heap)?\n\n```python\nimport heapq\n\ndef dijkstra(graph, src):\n    dist = {src: 0}\n    pq = [(0, src)]\n    while pq:\n        d, u = heapq.heappop(pq)\n        if d != dist.get(u, float(\"inf\")):\n            continue\n        for v, w in graph.get(u, []):\n            nd = d + w\n            if nd < dist.get(v, float(\"inf\")):\n                dist[v] = nd\n                heapq.heappush(pq, (nd, v))\n    return dist\n```\n",
+    "choices": {
+      "A": "O(V + E)",
+      "B": "O((V + E) log V)",
+      "C": "O(V^2)",
+      "D": "O(E log E) only"
+    },
+    "correct_answer": "B",
+    "explanation": "Each push/pop is O(log V) and there are O(E) relaxations plus O(V) pops in typical bounds, giving O((V+E)log V)."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import deque\n\ndef bfs_len_bug(g, s, t):\n    q = deque([s])\n    dist = {s: 0}\n    while q:\n        v = q.pop()  # BUG: LIFO pop makes it depth-first-ish\n        if v == t:\n            return dist[v]\n        for nei in g.get(v, []):\n            if nei not in dist:\n                dist[nei] = dist[v] + 1\n                q.append(nei)\n    return None\n\ng = {0: [1, 2], 1: [3], 2: [4], 4: [5], 5: [3], 3: []}\nprint(bfs_len_bug(g, 0, 3))\n```\n",
+    "choices": null,
+    "correct_answer": "4",
+    "explanation": "Because it explores via LIFO, it discovers 3 first through the longer path 0→2→4→5→3 and locks in dist[3]=4."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef next_greater(nums):\n    stack = []\n    res = [-1] * len(nums)\n    for i, x in enumerate(nums):\n        while stack and nums[stack[-1]] < x:\n            j = stack.pop()\n            res[j] = x\n        stack.append(i)\n    return res\n\nprint(next_greater([2, 1, 2, 4, 3]))\n```\n",
+    "choices": null,
+    "correct_answer": "[4, 2, 4, -1, -1]",
+    "explanation": "A monotonic decreasing stack tracks unresolved indices; each time a larger element appears, it resolves previous smaller ones."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nwords = [\"eat\", \"tea\", \"tan\", \"ate\", \"nat\", \"bat\"]\n\ngroups = {}\nfor w in words:\n    key = tuple(sorted(w))\n    groups.setdefault(key, []).append(w)\n\nprint(sorted(len(v) for v in groups.values()))\n```\n",
+    "choices": null,
+    "correct_answer": "[1, 2, 3]",
+    "explanation": "There are three anagram buckets: {bat} size 1, {tan,nat} size 2, {eat,tea,ate} size 3."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef fib(n, memo={0: 0, 1: 1}):\n    if n in memo:\n        return memo[n]\n    memo[n] = fib(n - 1) + fib(n - 2)\n    return memo[n]\n\nprint(fib(5))\nprint(fib(6))\n```\n",
+    "choices": null,
+    "correct_answer": "5\n8",
+    "explanation": "Memoization caches results. Also, the default `memo` persists across calls, so fib(6) reuses the cached fib(5)."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ng = {1: [2, 3], 2: [4], 3: [4], 4: []}\n\ndef dfs_order(start):\n    stack = [start]\n    seen = set()\n    out = []\n    while stack:\n        v = stack.pop()\n        if v in seen:\n            continue\n        seen.add(v)\n        out.append(v)\n        for nei in g[v]:\n            stack.append(nei)\n    return out\n\nprint(dfs_order(1))\n```\n",
+    "choices": null,
+    "correct_answer": "[1, 3, 4, 2]",
+    "explanation": "Neighbors are appended in order [2,3], but the stack pops 3 first. Node 4 is then visited before returning to 2."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef max_non_overlapping(intervals):\n    intervals = sorted(intervals, key=lambda x: x[1])\n    end = float(\"-inf\")\n    chosen = []\n    for s, e in intervals:\n        if s >= end:\n            chosen.append((s, e))\n            end = e\n    return chosen\n\nintervals = [(1, 3), (2, 4), (3, 5), (0, 7), (5, 9), (5, 7), (8, 9)]\nprint(len(max_non_overlapping(intervals)))\nprint(max_non_overlapping(intervals))\n```\n",
+    "choices": null,
+    "correct_answer": "4\n[(1, 3), (3, 5), (5, 7), (8, 9)]",
+    "explanation": "Greedy by earliest finishing time selects (1,3), (3,5), (5,7), (8,9)."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\ndef count_pairs(nums, target):\n    nums.sort()\n    i, j = 0, len(nums) - 1\n    cnt = 0\n    while i < j:\n        if nums[i] + nums[j] < target:\n            cnt += (j - i)\n            i += 1\n        else:\n            j -= 1\n    return cnt\n\nprint(count_pairs([3, 1, 0, -2], 4))\n```\n",
+    "choices": null,
+    "correct_answer": "5",
+    "explanation": "After sorting [-2,0,1,3], there are 5 pairs with sum < 4."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What does this function return for `s = \"pwwkew\"`?\n\n```python\ndef longest(s):\n    seen = set()\n    left = 0\n    best = 0\n    for right, ch in enumerate(s):\n        if ch in seen:\n            seen.remove(s[left])  # BUG: should shrink in a while-loop\n            left += 1\n        seen.add(ch)\n        best = max(best, right - left + 1)\n    return best\n```\n",
+    "choices": {
+      "A": "2",
+      "B": "3",
+      "C": "4",
+      "D": "5"
+    },
+    "correct_answer": "C",
+    "explanation": "Because it removes only one character when a duplicate is found, the window can still contain duplicates, inflating `best` to 4 for 'pwwkew'."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "This recursive quickselect-like function tries to return the k-th smallest element (0-indexed). What does it return for `nums=[2,1,2,2,3]` and `k=2`?\n\n```python\ndef kth(nums, k):\n    pivot = nums[0]\n    left = [x for x in nums[1:] if x < pivot]\n    right = [x for x in nums[1:] if x > pivot]  # BUG: drops elements == pivot\n    if k < len(left):\n        return kth(left, k)\n    if k == len(left):\n        return pivot\n    return kth(right, k - len(left) - 1)\n\nprint(kth([2, 1, 2, 2, 3], 2))\n```\n",
+    "choices": {
+      "A": "1",
+      "B": "2",
+      "C": "3",
+      "D": "RecursionError"
+    },
+    "correct_answer": "C",
+    "explanation": "Because values equal to the pivot (2) are discarded, the algorithm behaves as if the array were [1,2,3], so k=2 yields 3."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "This backtracking solver counts N-Queens solutions, but has a diagonal-check bug. What does it print for `n=4`?\n\n```python\ndef nqueens_bug(n):\n    cols = []\n\n    def ok(r, c):\n        for rr, cc in enumerate(cols):\n            if cc == c:\n                return False\n            if abs(cc - c) <= r - rr:  # BUG: should be == for diagonals\n                return False\n        return True\n\n    def bt(r):\n        if r == n:\n            return 1\n        total = 0\n        for c in range(n):\n            if ok(r, c):\n                cols.append(c)\n                total += bt(r + 1)\n                cols.pop()\n        return total\n\n    return bt(0)\n\nprint(nqueens_bug(4))\n```\n",
+    "choices": {
+      "A": "0",
+      "B": "1",
+      "C": "2",
+      "D": "4"
+    },
+    "correct_answer": "A",
+    "explanation": "Using `<=` rejects many non-diagonal placements (it forbids queens that are 'too close'), so for n=4 it eliminates all solutions and returns 0."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "The code below computes a subsequence length using binary search. What does it print?\n\n```python\nimport bisect\n\ndef lis_len(nums):\n    tails = []\n    for x in nums:\n        i = bisect.bisect_right(tails, x)  # note: right\n        if i == len(tails):\n            tails.append(x)\n        else:\n            tails[i] = x\n    return len(tails)\n\nprint(lis_len([2, 2, 2]))\n```\n",
+    "choices": {
+      "A": "1",
+      "B": "2",
+      "C": "3",
+      "D": "0"
+    },
+    "correct_answer": "C",
+    "explanation": "`bisect_right` treats equal values as extending the sequence (non-decreasing), so three 2s produce length 3."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What happens when you run this code?\n\n```python\ndef topo(g):\n    indeg = {u: 0 for u in g}\n    for u in g:\n        for v in g[u]:\n            indeg[v] = indeg.get(v, 0) + 1\n\n    order = []\n    for u in indeg:           # iterating a dict...\n        if indeg[u] == 0:\n            order.append(u)\n            indeg.pop(u)      # ...while mutating it\n    return order\n\nprint(topo({\"A\": [\"B\"], \"B\": []}))\n```\n",
+    "choices": {
+      "A": "It prints ['A']",
+      "B": "It prints ['A', 'B']",
+      "C": "It prints []",
+      "D": "It raises RuntimeError about dict size changing during iteration"
+    },
+    "correct_answer": "D",
+    "explanation": "Python raises `RuntimeError: dictionary changed size during iteration` when you mutate a dict while iterating over it."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What does this counting-sort implementation print?\n\n```python\ndef counting_sort(nums):\n    m = max(nums)\n    cnt = [0] * (m + 1)\n    for x in nums:\n        cnt[x] += 1\n    out = []\n    for v, c in enumerate(cnt):\n        out.extend([v] * c)\n    return out\n\nprint(counting_sort([-1, 2, 0]))\n```\n",
+    "choices": {
+      "A": "[-1, 0, 2]",
+      "B": "[0, 2, 2]",
+      "C": "It raises IndexError",
+      "D": "It raises ValueError"
+    },
+    "correct_answer": "B",
+    "explanation": "Negative indexing makes `cnt[-1]` refer to the last bucket (value 2), so -1 is miscounted as 2, producing [0,2,2]."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the most likely outcome of running this on a typical Python interpreter (default recursion limit ~1000)?\n\n```python\ndef run(n):\n    g = {i: [i + 1] for i in range(n)}\n    g[n] = []\n\n    def dfs(v):\n        return 1 + max((dfs(u) for u in g[v]), default=0)\n\n    print(dfs(0))\n\nrun(1200)\n```\n",
+    "choices": {
+      "A": "It prints 1201",
+      "B": "It prints 1200",
+      "C": "It raises RecursionError",
+      "D": "It runs forever"
+    },
+    "correct_answer": "C",
+    "explanation": "The recursion depth grows linearly with n. For n=1200 it typically exceeds the recursion limit and raises `RecursionError`."
+  },
+  {
+    "topic": "algorithms",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of this parentheses-checker in the worst case for a string of length n?\n\n```python\ndef is_valid(s):\n    q = []\n    for ch in s:\n        if ch == \"(\":\n            q.insert(0, ch)  # insert at front\n        else:\n            if not q:\n                return False\n            q.pop(0)         # pop from front\n    return not q\n```\n",
+    "choices": {
+      "A": "O(n)",
+      "B": "O(n log n)",
+      "C": "O(n^2)",
+      "D": "O(1)"
+    },
+    "correct_answer": "C",
+    "explanation": "`insert(0, ...)` and `pop(0)` are O(n) each due to shifting elements, so doing them O(n) times yields O(n^2)."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import deque\n\nq = deque([1, 2, 3])\nq.appendleft(0)\nq.append(4)\nprint(q.popleft(), q.pop())\nprint(list(q))\n```\n",
+    "choices": null,
+    "correct_answer": "0 4\n[1, 2, 3]\n",
+    "explanation": "appendleft adds to the front; append adds to the end. popleft removes 0, pop removes 4, leaving [1,2,3]."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "Which statement is correct about the result and why?\n\n```python\nx = [1, 2]\nd = {\"a\": x}\nx.append(3)\nprint(d[\"a\"])\n```\n",
+    "choices": {
+      "A": "It prints [1, 2] because dict stores a copy of the list value.",
+      "B": "It prints [1, 2, 3] because dict stores a reference to the same list object.",
+      "C": "It raises TypeError because lists cannot be dict values.",
+      "D": "It prints [3] because append replaces the list."
+    },
+    "correct_answer": "B",
+    "explanation": "The dict value points to the same list object referenced by x, so mutating x mutates d['a']."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import defaultdict\n\ng = defaultdict(list)\nedges = [(\"a\", \"b\"), (\"a\", \"c\"), (\"b\", \"c\"), (\"c\", \"a\")]\n\nfor u, v in edges:\n    g[u].append(v)\n\nprint(sorted((k, tuple(g[k])) for k in g))\nprint(\"d\" in g)\n_ = g[\"d\"]\nprint(\"d\" in g, g[\"d\"])\n```\n",
+    "choices": null,
+    "correct_answer": "[(\"a\", (\"b\", \"c\")), (\"b\", (\"c\",)), (\"c\", (\"a\",))]\nFalse\nTrue []\n",
+    "explanation": "defaultdict creates a key on access. Sorting makes output deterministic. Accessing g['d'] inserts 'd' with []."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the time complexity of the code below (n = len(nums))?\n\n```python\nnums = list(range(10_000))\nseen = set()\ncount = 0\nfor x in nums:\n    if x in seen:\n        count += 1\n    else:\n        seen.add(x)\nprint(count)\n```\n",
+    "choices": {
+      "A": "O(n^2) because membership test in a set is linear.",
+      "B": "O(n log n) because set membership uses hashing and sorting.",
+      "C": "O(n) average-case because set membership and insertion are average O(1).",
+      "D": "O(1) because hashing is constant regardless of n."
+    },
+    "correct_answer": "C",
+    "explanation": "Hash set membership and insertion are average O(1), so the loop is average O(n)."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nimport heapq\n\nh = []\nfor x in [5, 1, 3, 1, 4]:\n    heapq.heappush(h, x)\n\nout = [heapq.heappop(h) for _ in range(3)]\nprint(out)\nprint(h[0], len(h))\n```\n",
+    "choices": null,
+    "correct_answer": "[1, 1, 3]\n4 2\n",
+    "explanation": "heapq is a min-heap. After popping three smallest, remaining elements are [4,5] (heap-ordered), so min is 4 and length is 2."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nnums = [0, 1, 2, 3, 4, 5]\nfor x in nums:\n    if x % 2 == 0:\n        nums.remove(x)\nprint(nums)\n```\n",
+    "choices": null,
+    "correct_answer": "[1, 3, 5]\n",
+    "explanation": "Removing while iterating skips elements because indices shift; it ends up removing 0,2,4 and leaves [1,3,5]."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Which option best describes what this code prints and why?\n\n```python\npairs = [(1, \"a\"), (2, \"b\"), (1, \"c\"), (2, \"d\")]\nd = dict(pairs)\nprint(d)\n```\n",
+    "choices": {
+      "A": "{1: 'a', 2: 'b'} because dict keeps the first value for each key.",
+      "B": "{1: 'c', 2: 'd'} because later assignments overwrite earlier ones for the same key.",
+      "C": "It raises ValueError because there are duplicate keys.",
+      "D": "The output is non-deterministic because dict order is random."
+    },
+    "correct_answer": "B",
+    "explanation": "When building a dict, later pairs overwrite earlier ones for the same key. Dict preserves insertion order of keys, but values overwrite per key."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import Counter\n\nc = Counter(\"abca\")\nprint(c.most_common(2))\n\nc.update(\"b\")\nprint(c[\"b\"], c[\"z\"])\n\nc.subtract(\"aa\")\nprint(c[\"a\"], sum(c.values()))\n```\n",
+    "choices": null,
+    "correct_answer": "[(\"a\", 2), (\"b\", 1)]\n2 0\n0 4\n",
+    "explanation": "Counter counts characters. Missing keys return 0. subtract can reduce counts; counts can hit 0 (or negative), and values sum reflects the internal counts."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What does the code output?\n\n```python\nlst = [1, 2, 3]\nt = (lst,)\nlst.append(4)\nprint(t)\n```\n",
+    "choices": {
+      "A": "([1, 2, 3],) because tuples freeze nested objects.",
+      "B": "([1, 2, 3, 4],) because the tuple contains a reference to the same list.",
+      "C": "It raises TypeError because tuples cannot contain lists.",
+      "D": "It prints (1, 2, 3, 4) because the list is unpacked into the tuple."
+    },
+    "correct_answer": "B",
+    "explanation": "The tuple is immutable, but it can hold a mutable list. Mutating the list changes what you see inside the tuple."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import deque\n\nstack = []\nq = deque()\n\nfor ch in \"abcd\":\n    stack.append(ch)\n    q.append(ch)\n\nprint(stack.pop(), q.popleft())\nprint(stack[-1], q[-1])\n```\n",
+    "choices": null,
+    "correct_answer": "d a\nc d\n",
+    "explanation": "List used as stack is LIFO; deque used as queue is FIFO. After one pop and one popleft, stack ends with 'c' and queue ends with 'd'."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Which is the most accurate statement about the output and its determinism?\n\n```python\ns = {3, 1, 2, 3}\nprint(len(s), 2 in s)\n```\n",
+    "choices": {
+      "A": "Always prints `4 True` because duplicates are kept in sets.",
+      "B": "Always prints `3 True` because sets remove duplicates; membership test is deterministic.",
+      "C": "Output is non-deterministic because set iteration order is random.",
+      "D": "Raises TypeError because sets cannot contain integers."
+    },
+    "correct_answer": "B",
+    "explanation": "Sets remove duplicates, so size is 3. Membership test `2 in s` is deterministic regardless of iteration order."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nimport copy\n\nmatrix = [[0], [1]]\nshallow = list(matrix)\ndeep = copy.deepcopy(matrix)\n\nmatrix[0].append(99)\nshallow.append([2])\ndeep[1].append(88)\n\nprint(matrix)\nprint(shallow)\nprint(deep)\n```\n",
+    "choices": null,
+    "correct_answer": "[[0, 99], [1]]\n[[0, 99], [1], [2]]\n[[0], [1, 88]]\n",
+    "explanation": "Shallow copy shares inner lists; deep copy duplicates them. Appending a new row to shallow doesn’t affect matrix."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nd = {\"x\": 1}\nprint(d.get(\"y\"), d.get(\"y\", 10))\nprint(\"y\" in d)\n```\n",
+    "choices": null,
+    "correct_answer": "None 10\nFalse\n",
+    "explanation": "dict.get returns None by default if missing, or the provided default. Membership checks key presence."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Which choice correctly describes what this code prints?\n\n```python\nfrom collections import defaultdict\n\ndd = defaultdict(int)\nprint(dd[\"missing\"])\nprint(\"missing\" in dd)\n```\n",
+    "choices": {
+      "A": "Prints `0` then `False` because reading doesn't insert keys.",
+      "B": "Prints `0` then `True` because accessing dd['missing'] inserts the key with default value 0.",
+      "C": "Raises KeyError then prints `False`.",
+      "D": "Prints `None` then `True`."
+    },
+    "correct_answer": "B",
+    "explanation": "defaultdict creates and inserts a default value on missing-key access, so the key becomes present."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import deque\n\n# adjacency list\nadj = {\n    0: [1, 2],\n    1: [2],\n    2: [0, 3],\n    3: [3]\n}\n\ndef bfs(start):\n    q = deque([start])\n    seen = {start}\n    order = []\n    while q:\n        u = q.popleft()\n        order.append(u)\n        for v in adj[u]:\n            if v not in seen:\n                seen.add(v)\n                q.append(v)\n    return order\n\nprint(bfs(2))\n```\n",
+    "choices": null,
+    "correct_answer": "[2, 0, 3, 1]\n",
+    "explanation": "BFS from 2 visits 2, then neighbors 0 and 3, then from 0 enqueues 1 (2 already seen). Self-loop at 3 doesn't add new nodes."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "Which option is true about the behavior of this code?\n\n```python\nitems = [(\"a\", 1), (\"b\", 2), (\"a\", 3)]\nd = {}\nfor k, v in items:\n    d.setdefault(k, []).append(v)\nprint(d)\n```\n",
+    "choices": {
+      "A": "{'a': [1], 'b': [2]} because setdefault ignores later appends.",
+      "B": "{'a': [1, 3], 'b': [2]} because setdefault creates a list once per key and then appends.",
+      "C": "{'a': [3], 'b': [2]} because later values overwrite earlier ones like dict(k=v).",
+      "D": "Raises AttributeError because setdefault returns None."
+    },
+    "correct_answer": "B",
+    "explanation": "setdefault returns the existing list if present, otherwise inserts the default list and returns it, allowing .append each time."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nimport heapq\n\nh = []\nfor item in [(2, \"b\"), (1, \"z\"), (1, \"a\"), (2, \"a\")]:\n    heapq.heappush(h, item)\n\nprint(heapq.heappop(h))\nprint(heapq.heappop(h))\n```\n",
+    "choices": null,
+    "correct_answer": "(1, \"a\")\n(1, \"z\")\n",
+    "explanation": "Tuples are compared lexicographically. Priority is first element; ties break by the second string ('a' < 'z')."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "What is the asymptotic time complexity of this operation sequence (n = len(lst))?\n\n```python\nlst = list(range(10000))\nfor _ in range(5000):\n    lst.pop(0)\n```\n",
+    "choices": {
+      "A": "O(n) because pop(0) is O(1) repeated n times.",
+      "B": "O(n log n) because each pop triggers re-heapification.",
+      "C": "O(n^2) because popping from the front of a list shifts all remaining elements each time.",
+      "D": "O(log n) because pop uses binary search internally."
+    },
+    "correct_answer": "C",
+    "explanation": "pop(0) is O(n) due to shifting; repeated ~n times yields O(n^2). A deque would avoid this."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nlst = [1, 2, 3]\nprint(lst[::-1])\nprint(lst)\n```\n",
+    "choices": null,
+    "correct_answer": "[3, 2, 1]\n[1, 2, 3]\n",
+    "explanation": "Slicing with step -1 creates a new reversed list and does not mutate the original."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import Counter\n\nwords = [\"a\", \"b\", \"a\", \"c\", \"b\", \"a\"]\ncounts = Counter(words)\n\n# keep only words with odd counts\nodd = {w for w, c in counts.items() if c % 2 == 1}\n\nprint(sorted(odd))\nprint(counts[\"d\"], \"d\" in counts)\n```\n",
+    "choices": null,
+    "correct_answer": "['a', 'c']\n0 False\n",
+    "explanation": "Counter counts: a=3 (odd), b=2 (even), c=1 (odd). Missing keys return 0, but membership checks stored keys only."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Which choice correctly describes why this code raises an error?\n\n```python\ns = set()\ns.add([1, 2])\nprint(s)\n```\n",
+    "choices": {
+      "A": "It works: lists are hashable if they contain only ints.",
+      "B": "TypeError: unhashable type 'list' because set elements must be hashable.",
+      "C": "ValueError because sets cannot store collections.",
+      "D": "KeyError because add expects a key."
+    },
+    "correct_answer": "B",
+    "explanation": "Set elements must be hashable; lists are mutable and unhashable, so adding a list raises TypeError."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\n# union-find (disjoint set)\nparent = {}\nrank = {}\n\ndef find(x):\n    parent.setdefault(x, x)\n    rank.setdefault(x, 0)\n    if parent[x] != x:\n        parent[x] = find(parent[x])\n    return parent[x]\n\ndef union(a, b):\n    ra, rb = find(a), find(b)\n    if ra == rb:\n        return False\n    if rank[ra] < rank[rb]:\n        ra, rb = rb, ra\n    parent[rb] = ra\n    if rank[ra] == rank[rb]:\n        rank[ra] += 1\n    return True\n\nfor a, b in [(1, 2), (2, 3), (4, 5), (3, 5), (5, 1)]:\n    print(union(a, b))\n\nprint(find(4) == find(1))\n```\n",
+    "choices": null,
+    "correct_answer": "True\nTrue\nTrue\nTrue\nFalse\nTrue\n",
+    "explanation": "The last union tries to union nodes already connected, so it returns False. After unions, 1 and 4 are connected through (3,5)."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What does the code print?\n\n```python\nx = (1, 2, 3)\ny = x\nx += (4,)\nprint(y, x)\n```\n",
+    "choices": {
+      "A": "(1, 2, 3, 4) (1, 2, 3, 4) because tuples mutate in place.",
+      "B": "(1, 2, 3) (1, 2, 3, 4) because x becomes a new tuple and y still references the old one.",
+      "C": "(1, 2, 3, 4) (1, 2, 3) because += prepends for tuples.",
+      "D": "Raises TypeError because tuples do not support +."
+    },
+    "correct_answer": "B",
+    "explanation": "Tuples are immutable; x += creates a new tuple object and rebinds x, while y still points to the original."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import deque\n\n# stack + deque combined\nops = [\"push 1\", \"push 2\", \"pop\", \"push 3\", \"shift\", \"push 4\", \"shift\"]\nstack = []\nq = deque()\n\nfor op in ops:\n    parts = op.split()\n    if parts[0] == \"push\":\n        val = int(parts[1])\n        stack.append(val)\n        q.append(val)\n    elif parts[0] == \"pop\":\n        if stack:\n            stack.pop()\n    else:  # shift\n        if q:\n            q.popleft()\n\nprint(stack)\nprint(list(q))\n```\n",
+    "choices": null,
+    "correct_answer": "[1, 3, 4]\n[2, 3, 4]\n",
+    "explanation": "The stack and queue diverge because pop removes from the end of stack only, while shift removes from the front of the deque only."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Which statement about correctness is true?\n\n```python\n# remove duplicates while preserving order\nnums = [3, 1, 3, 2, 1]\nseen = set()\nout = []\nfor x in nums:\n    if x not in seen:\n        out.append(x)\n        seen.add(x)\nprint(out)\n```\n",
+    "choices": {
+      "A": "Incorrect: sets don't preserve order, so out order is undefined.",
+      "B": "Correct: out preserves first occurrences because order comes from iterating nums, not from the set.",
+      "C": "Incorrect: membership in a set is O(n), so duplicates may slip through.",
+      "D": "Incorrect: adding to a set changes nums during iteration."
+    },
+    "correct_answer": "B",
+    "explanation": "The set is only used for O(1) membership checks; ordering is preserved by iterating the original list and appending first occurrences."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import deque\n\nq = deque([1, 2, 3])\nq.rotate(1)\nprint(list(q))\nq.rotate(-2)\nprint(list(q))\n```\n",
+    "choices": null,
+    "correct_answer": "[3, 1, 2]\n[2, 3, 1]\n",
+    "explanation": "rotate(1) moves elements right by 1; rotate(-2) moves elements left by 2."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import defaultdict\n\n# group by parity and keep counts\nnums = [1, 2, 2, 3, 4, 4, 4]\ncounts = defaultdict(int)\ngroups = defaultdict(list)\n\nfor x in nums:\n    counts[x] += 1\n    groups[x % 2].append(x)\n\nprint(counts[4], counts[5])\nprint({k: len(v) for k, v in sorted(groups.items())})\n```\n",
+    "choices": null,
+    "correct_answer": "3 0\n{0: 5, 1: 2}\n",
+    "explanation": "defaultdict(int) defaults to 0 for unseen keys on access, but counts[5] was never incremented. groups collects all nums by parity."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Which option best describes the bug in this code?\n\n```python\n# adjacency list builder\nedges = [(0, 1), (0, 2), (1, 2)]\nadj = dict.fromkeys([0, 1, 2], [])\n\nfor u, v in edges:\n    adj[u].append(v)\n\nprint(adj)\n```\n",
+    "choices": {
+      "A": "No bug: dict.fromkeys creates a fresh list per key.",
+      "B": "Bug: all keys share the same list, so appending to one appends to all.",
+      "C": "Bug: dict keys must be strings, not ints.",
+      "D": "Bug: append returns a new list but is ignored."
+    },
+    "correct_answer": "B",
+    "explanation": "dict.fromkeys with a mutable default uses the same object for all keys, causing shared adjacency lists."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nimport heapq\n\n# top-k largest using a min-heap of size k\nnums = [5, 1, 9, 2, 8, 3]\nk = 3\nh = []\n\nfor x in nums:\n    if len(h) < k:\n        heapq.heappush(h, x)\n    else:\n        if x > h[0]:\n            heapq.heapreplace(h, x)\n\nprint(sorted(h))\n```\n",
+    "choices": null,
+    "correct_answer": "[5, 8, 9]\n",
+    "explanation": "Maintain a min-heap of size k containing the current top-k largest; final heap holds {5,8,9}."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "junior",
+    "type": "mcq",
+    "prompt": "What does this code print?\n\n```python\nd = {\"a\": 1, \"b\": 2}\nkeys = list(d.keys())\nd[\"c\"] = 3\nprint(keys)\nprint(list(d.keys()))\n```\n",
+    "choices": {
+      "A": "['a', 'b', 'c'] then ['a', 'b', 'c'] because keys is a live view.",
+      "B": "['a', 'b'] then ['a', 'b', 'c'] because keys is a snapshot list, while d.keys() reflects current dict.",
+      "C": "Raises RuntimeError because dict changed size during iteration.",
+      "D": "['a', 'b'] then ['c'] because adding overwrites keys."
+    },
+    "correct_answer": "B",
+    "explanation": "list(d.keys()) creates a snapshot. The later list(d.keys()) reflects the updated dict."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "code_output",
+    "prompt": "What is the output of the following code?\n\n```python\nfrom collections import deque\n\n# sliding window with deque storing indices\nnums = [4, 2, 12, 3, 8, 7]\nk = 3\n\ndq = deque()\nout = []\n\nfor i, x in enumerate(nums):\n    while dq and dq[0] <= i - k:\n        dq.popleft()\n    while dq and nums[dq[-1]] <= x:\n        dq.pop()\n    dq.append(i)\n    if i >= k - 1:\n        out.append(nums[dq[0]])\n\nprint(out)\n```\n",
+    "choices": null,
+    "correct_answer": "[12, 12, 12, 8]\n",
+    "explanation": "This is the classic monotonic deque window-maximum. It outputs max for each window of size 3."
+  },
+  {
+    "topic": "data_structures",
+    "difficulty": "middle",
+    "type": "mcq",
+    "prompt": "Which option correctly identifies the output and the key property used?\n\n```python\n# dict order preservation test\nitems = [(\"b\", 1), (\"a\", 2), (\"b\", 3), (\"c\", 4)]\nd = {}\nfor k, v in items:\n    d[k] = v\nprint(list(d.items()))\n```\n",
+    "choices": {
+      "A": "[('b', 3), ('a', 2), ('c', 4)] because dict preserves insertion order of first time a key appears.",
+      "B": "[('a', 2), ('b', 3), ('c', 4)] because dict always sorts keys alphabetically.",
+      "C": "[('b', 1), ('a', 2), ('b', 3), ('c', 4)] because dict keeps duplicates.",
+      "D": "Non-deterministic because dict order changes when values are overwritten."
+    },
+    "correct_answer": "A",
+    "explanation": "In modern Python, dict preserves insertion order of keys. Overwriting a value does not move the key’s position."
   }
 ]

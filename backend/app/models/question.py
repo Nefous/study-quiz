@@ -13,6 +13,7 @@ class Question(Base):
     __tablename__ = "questions"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    seed_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     topic: Mapped[Topic] = mapped_column(String(50), nullable=False)
     difficulty: Mapped[Difficulty] = mapped_column(String(20), nullable=False)
     type: Mapped[QuestionType] = mapped_column(String(20), nullable=False)

@@ -16,6 +16,7 @@ class Topic(StrEnum):
     BIG_O = "big_o"
     ALGORITHMS = "algorithms"
     DATA_STRUCTURES = "data_structures"
+    RANDOM = "random"
 
 
 class QuizMode(StrEnum):

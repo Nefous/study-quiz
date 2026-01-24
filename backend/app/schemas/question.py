@@ -33,3 +33,4 @@ class QuestionCreate(BaseModel):
 
 class QuestionCreateInternal(QuestionCreate):
     id: UUID | None = None
+    seed_key: str | None = None
