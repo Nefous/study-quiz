@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(...)
     DEFAULT_QUIZ_SIZE: int = Field(default=10)
     MAX_QUESTIONS_PER_QUIZ: int = Field(default=50)
+    OPENAI_API_KEY: str | None = Field(default=None)
+    OPENAI_MODEL: str = Field(default="gpt-5-mini")
+    OPENAI_TEMPERATURE: float = Field(default=0.4)
+    OPENAI_HINT_MAX_TOKENS: int = Field(default=180)
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[3] / ".env",

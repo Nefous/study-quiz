@@ -17,6 +17,12 @@ class QuestionRepository:
         result = await self.session.execute(select(Question))
         return result.scalars().all()
 
+    async def get_question_by_id(self, question_id) -> Question | None:
+        result = await self.session.execute(
+            select(Question).where(Question.id == question_id)
+        )
+        return result.scalars().first()
+
     async def list_questions_filtered(
         self,
         topic: Topic | None = None,
