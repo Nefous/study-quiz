@@ -34,3 +34,24 @@ export async function request<T>(
 
   return parseJson<T>(response);
 }
+
+export async function getHint(
+  questionId: string,
+  payload: { user_answer?: string; level: number }
+): Promise<{ hint: string }> {
+  try {
+    return await request<{ hint: string }>(`/questions/${questionId}/hint`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    const apiError = error as ApiError;
+    if (apiError?.status === 503) {
+      throw {
+        message: "AI hints are unavailable right now. Please try again later.",
+        status: 503
+      } satisfies ApiError;
+    }
+    throw error;
+  }
+}

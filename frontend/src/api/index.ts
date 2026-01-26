@@ -7,7 +7,7 @@ import type {
   QuestionType,
   QuizMode
 } from "./types";
-import { request } from "./client";
+import { getHint, request } from "./client";
 
 export async function generateQuiz(
   payload: QuizGenerateRequest
@@ -21,6 +21,8 @@ export async function generateQuiz(
 export async function getMeta(): Promise<MetaResponse> {
   return request<MetaResponse>("/meta");
 }
+
+export { getHint };
 
 export const topics: { label: string; value: Topic }[] = [
   { label: "Python Core", value: "python_core" },

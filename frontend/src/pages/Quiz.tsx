@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { generateQuiz, difficultyLabels, modeLabels, topicLabels } from "../api";
+import { generateQuiz, getHint, difficultyLabels, modeLabels, topicLabels } from "../api";
 import type {
   Difficulty,
   QuizGenerateRequest,
   QuizGenerateResponse,
   QuizMode,
   QuizQuestion,
-  Topic
+  Topic,
+  ApiError
 } from "../api/types";
 import Alert from "../components/ui/Alert";
 import Badge from "../components/ui/Badge";
@@ -39,6 +40,10 @@ export default function Quiz() {
   const [results, setResults] = useState<Record<string, PracticeResult>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showQuit, setShowQuit] = useState(false);
+  const [hintLevel, setHintLevel] = useState(1);
+  const [hintByQuestionId, setHintByQuestionId] = useState<Record<string, string>>({});
+  const [hintLoadingByQuestionId, setHintLoadingByQuestionId] = useState<Record<string, boolean>>({});
+  const [hintErrorByQuestionId, setHintErrorByQuestionId] = useState<Record<string, string>>({});
 
   const settings = useMemo<QuizGenerateRequest | null>(() => {
     const topic = params.get("topic") as Topic | null;
@@ -92,6 +97,9 @@ export default function Quiz() {
               submitted: Record<string, boolean>;
               results: Record<string, PracticeResult>;
               currentIndex: number;
+              hintByQuestionId?: Record<string, string>;
+              hintLoadingByQuestionId?: Record<string, boolean>;
+              hintErrorByQuestionId?: Record<string, string>;
             };
             if (parsed?.quiz?.questions?.length) {
               if (active) {
@@ -100,6 +108,9 @@ export default function Quiz() {
                 setSubmitted(parsed.submitted || {});
                 setResults(parsed.results || {});
                 setCurrentIndex(parsed.currentIndex || 0);
+                setHintByQuestionId(parsed.hintByQuestionId || {});
+                setHintLoadingByQuestionId(parsed.hintLoadingByQuestionId || {});
+                setHintErrorByQuestionId(parsed.hintErrorByQuestionId || {});
                 setLoading(false);
               }
               return;
@@ -139,9 +150,18 @@ export default function Quiz() {
     if (!quiz) return;
     sessionStorage.setItem(
       storageKey,
-      JSON.stringify({ quiz, answers, submitted, results, currentIndex })
+      JSON.stringify({
+        quiz,
+        answers,
+        submitted,
+        results,
+        currentIndex,
+        hintByQuestionId,
+        hintLoadingByQuestionId,
+        hintErrorByQuestionId
+      })
     );
-  }, [answers, currentIndex, quiz, results, storageKey, submitted]);
+  }, [answers, currentIndex, hintByQuestionId, hintErrorByQuestionId, hintLoadingByQuestionId, quiz, results, storageKey, submitted]);
 
   if (!settings) {
     return null;
@@ -229,6 +249,40 @@ export default function Quiz() {
   };
 
   const result = results[question.id];
+  const hintKey = `${question.id}:${hintLevel}`;
+  const hint = hintByQuestionId[hintKey];
+  const hintLoading = hintLoadingByQuestionId[hintKey];
+  const hintError = hintErrorByQuestionId[hintKey];
+
+  const handleHint = async () => {
+    if (hintByQuestionId[hintKey]) return;
+
+    const payload: { user_answer?: string; level: number } = {
+      level: hintLevel
+    };
+
+    if (question.type === "mcq") {
+      if (currentAnswer) {
+        payload.user_answer = currentAnswer;
+      }
+    } else if (currentAnswer.trim()) {
+      payload.user_answer = currentAnswer.trim();
+    }
+
+    setHintLoadingByQuestionId((prev) => ({ ...prev, [hintKey]: true }));
+    setHintErrorByQuestionId((prev) => ({ ...prev, [hintKey]: "" }));
+
+    try {
+      const response = await getHint(question.id, payload);
+      setHintByQuestionId((prev) => ({ ...prev, [hintKey]: response.hint }));
+    } catch (err) {
+      const apiError = err as ApiError;
+      const message = apiError?.message || (err instanceof Error ? err.message : "Failed to get hint");
+      setHintErrorByQuestionId((prev) => ({ ...prev, [hintKey]: message }));
+    } finally {
+      setHintLoadingByQuestionId((prev) => ({ ...prev, [hintKey]: false }));
+    }
+  };
 
   return (
     <section className="mx-auto max-w-3xl space-y-6">
@@ -331,6 +385,52 @@ export default function Quiz() {
             ) : null}
           </Card>
         ) : null}
+
+        <Card className="space-y-4 border-white/10 bg-white/5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-100">AI Hint</p>
+              <p className="text-xs text-slate-400">Select a hint level and generate guidance.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {[1, 2, 3].map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  onClick={() => setHintLevel(level)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    hintLevel === level
+                      ? "border-indigo-400/60 bg-indigo-400/20 text-indigo-100"
+                      : "border-white/10 text-slate-300 hover:border-white/30"
+                  )}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={handleHint} disabled={Boolean(hintLoading)}>
+              {hintLoading ? "Generating hint..." : "Get Hint"}
+            </Button>
+            {hintLoading ? (
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <Spinner />
+                Generating hint...
+              </div>
+            ) : null}
+          </div>
+
+          {hintError ? <Alert>{hintError}</Alert> : null}
+
+          {hint ? (
+            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-200">
+              <p className="whitespace-pre-wrap leading-relaxed">{hint}</p>
+            </div>
+          ) : null}
+        </Card>
 
         <div className="flex flex-wrap items-center justify-end gap-3">
           {!isSubmitted ? (
