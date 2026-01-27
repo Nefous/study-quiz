@@ -309,6 +309,14 @@ export default function Home() {
           >
             Start Quiz
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate("/history")}
+            className="w-full"
+          >
+            History
+          </Button>
           {!canSubmit ? (
             <p className="text-xs text-rose-200">
               Select at least one topic (or enable Random Mix), difficulty, mode, and size.

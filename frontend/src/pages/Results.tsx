@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { difficultyLabels, modeLabels, topicLabels } from "../api";
-import type { QuizMode, QuizQuestion } from "../api/types";
+import { createAttempt, listAttempts, difficultyLabels, modeLabels, topicLabels } from "../api";
+import type { AttemptOut, QuizMode, QuizQuestion } from "../api/types";
 import Accordion from "../components/ui/Accordion";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -32,6 +32,9 @@ export default function Results() {
   const location = useLocation();
   const navigate = useNavigate();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [history, setHistory] = useState<AttemptOut[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const state = (location.state as ResultsState | null) ?? readStoredResults();
 
   if (!state) {
@@ -67,6 +70,78 @@ export default function Results() {
   const usedHintsCount = state.usedHintsCount ?? 0;
   const penaltyTotal = state.penaltyTotal ?? 0;
   const finalScore = clamp(rawScorePercent - penaltyTotal, 0, 100);
+
+  useEffect(() => {
+    if (!state) return;
+    const storageKey = `attempt_saved:${state.quiz_id}`;
+    if (localStorage.getItem(storageKey)) return;
+
+    const totalCount = questions.length;
+    const correctCount = isPractice
+      ? questions.reduce((acc, question) => {
+          const result = practiceResults?.[question.id];
+          if (result) {
+            return acc + (result.correct ? 1 : 0);
+          }
+          const expected = normalize(question.correct_answer ?? "");
+          const provided = normalize(answers[question.id] ?? "");
+          return acc + (expected === provided ? 1 : 0);
+        }, 0)
+      : 0;
+
+    const attemptPayload = {
+      topic: settings.topic,
+      difficulty: settings.difficulty,
+      mode: settings.mode,
+      size: settings.size,
+      correct_count: correctCount,
+      total_count: totalCount,
+      answers: questions.map((question) => {
+        const expected = normalize(question.correct_answer ?? "");
+        const provided = normalize(answers[question.id] ?? "");
+        const isCorrect = isPractice ? expected === provided : false;
+        return {
+          question_id: question.id,
+          user_answer: answers[question.id] ?? "",
+          is_correct: isCorrect
+        };
+      })
+    };
+
+    createAttempt(attemptPayload)
+      .then(() => {
+        localStorage.setItem(storageKey, "1");
+      })
+      .catch(() => {
+        localStorage.removeItem(storageKey);
+      });
+  }, [answers, isPractice, practiceResults, questions, settings, state]);
+
+  useEffect(() => {
+    let active = true;
+    const loadHistory = async () => {
+      try {
+        setHistoryLoading(true);
+        const items = await listAttempts(10, 0);
+        if (active) {
+          setHistory(items);
+        }
+      } catch (err) {
+        if (active) {
+          setHistoryError(err instanceof Error ? err.message : "Failed to load attempts");
+        }
+      } finally {
+        if (active) {
+          setHistoryLoading(false);
+        }
+      }
+    };
+
+    loadHistory();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const breakdown = useMemo(() => {
     const byType: Record<string, { correct: number; total: number }> = {};
@@ -242,9 +317,55 @@ export default function Results() {
         onToggle={(id) => setOpenId((prev) => (prev === id ? null : id))}
       />
 
+      <Card className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Attempt history</h2>
+          <p className="text-sm text-slate-400">Last 10 quiz attempts.</p>
+        </div>
+
+        {historyLoading ? (
+          <p className="text-sm text-slate-300">Loading attempts...</p>
+        ) : null}
+
+        {historyError ? (
+          <p className="text-sm text-rose-200">{historyError}</p>
+        ) : null}
+
+        {!historyLoading && !historyError ? (
+          <div className="space-y-2">
+            {history.length ? (
+              history.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200"
+                >
+                  <div>
+                    <p className="text-xs text-slate-400">
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+                    <p className="font-semibold text-white">
+                      {topicLabels[item.topic as keyof typeof topicLabels] ?? item.topic} · {difficultyLabels[item.difficulty as keyof typeof difficultyLabels] ?? item.difficulty}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400">Score</p>
+                    <p className="font-semibold text-white">
+                      {item.score_percent}% ({item.correct_count}/{item.total_count})
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-300">No attempts yet.</p>
+            )}
+          </div>
+        ) : null}
+      </Card>
+
       <div className="flex flex-wrap gap-3">
         <Button onClick={() => navigate(`/quiz?${query.toString()}`)}>Try again</Button>
         <Button variant="secondary" onClick={() => navigate("/")}>Back to home</Button>
+        <Button variant="secondary" onClick={() => navigate("/history")}>History</Button>
         {mode === "exam" ? (
           <Button
             variant="ghost"

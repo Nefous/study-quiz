@@ -5,7 +5,10 @@ import type {
   Topic,
   Difficulty,
   QuestionType,
-  QuizMode
+  QuizMode,
+  AttemptCreate,
+  AttemptOut,
+  AttemptStats
 } from "./types";
 import { getHint, request } from "./client";
 
@@ -20,6 +23,21 @@ export async function generateQuiz(
 
 export async function getMeta(): Promise<MetaResponse> {
   return request<MetaResponse>("/meta");
+}
+
+export async function createAttempt(payload: AttemptCreate): Promise<AttemptOut> {
+  return request<AttemptOut>("/attempts", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function listAttempts(limit = 20, offset = 0): Promise<AttemptOut[]> {
+  return request<AttemptOut[]>(`/attempts?limit=${limit}&offset=${offset}`);
+}
+
+export async function getAttemptStats(): Promise<AttemptStats> {
+  return request<AttemptStats>("/attempts/stats");
 }
 
 export { getHint };

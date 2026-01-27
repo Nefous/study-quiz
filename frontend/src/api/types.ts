@@ -39,3 +39,39 @@ export type MetaResponse = {
   defaultQuizSize: number;
   maxQuestionsPerQuiz: number;
 };
+
+export type AttemptAnswer = {
+  question_id: string;
+  user_answer: string;
+  is_correct: boolean;
+};
+
+export type AttemptCreate = {
+  topic: string;
+  difficulty: string;
+  mode: QuizMode;
+  size?: number;
+  correct_count: number;
+  total_count: number;
+  answers: AttemptAnswer[];
+};
+
+export type AttemptOut = AttemptCreate & {
+  id: string;
+  created_at: string;
+  score_percent: number;
+};
+
+export type AttemptTopicStats = {
+  topic: string;
+  attempts: number;
+  avg_score_percent: number;
+};
+
+export type AttemptStats = {
+  total_attempts: number;
+  avg_score_percent: number;
+  best_score_percent: number;
+  last_attempt_at: string | null;
+  by_topic: AttemptTopicStats[];
+};
