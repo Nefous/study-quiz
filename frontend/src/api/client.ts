@@ -1,6 +1,6 @@
 import type { ApiError } from "./types";
 
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+const baseURL = import.meta.env.VITE_API_URL || "/api";
 
 async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
