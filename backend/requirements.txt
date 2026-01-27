@@ -7,4 +7,4 @@ asyncpg>=0.29
 alembic>=1.13
 python-dotenv>=1.0
 langchain>=0.2
-langchain-openai>=0.2
+langchain-groq>=0.2

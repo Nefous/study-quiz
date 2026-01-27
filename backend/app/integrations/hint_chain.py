@@ -2,17 +2,20 @@ from __future__ import annotations
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 
 from app.core.config import get_settings
 
 SYSTEM_PROMPT = """
 You are a helpful tutor.
-Give only hints (1–4 bullets). NEVER reveal the correct answer, option letter, or exact output.
+Provide ONLY hints as 1–4 bullet points.
+Never reveal the correct answer, never mention the correct option letter, and never print the exact expected output.
+
 Level rules:
-- Level 1: general guidance
-- Level 2: more specific direction
-- Level 3: strong guidance but still no answer
+- Level 1: general guidance.
+- Level 2: more specific reasoning/pitfall; for MCQ you may say ONE option is unlikely (without naming which is correct).
+- Level 3: strong guidance; for MCQ you may say TWO options are unlikely (still never say which option is correct).
+
 Keep hints short and actionable.
 """.strip()
 
@@ -39,10 +42,10 @@ async def generate_hint(payload: dict) -> str:
             ("human", HUMAN_PROMPT),
         ]
     )
-    llm = ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        temperature=settings.OPENAI_TEMPERATURE,
-        max_tokens=settings.OPENAI_HINT_MAX_TOKENS,
+    llm = ChatGroq(
+        model=settings.GROQ_MODEL,
+        temperature=settings.GROQ_TEMPERATURE,
+        max_tokens=settings.GROQ_HINT_MAX_TOKENS,
     )
     chain = prompt | llm | StrOutputParser()
     return await chain.ainvoke(payload)

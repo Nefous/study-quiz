@@ -1,3 +1,4 @@
+from uuid import UUID
 from sqlalchemy import func, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,7 +61,10 @@ class QuestionRepository:
 
         result = await self.session.execute(stmt)
         return int(result.scalar_one())
-
+    
+    async def get_by_id(self, question_id: UUID) -> Question | None:
+        return await self.session.get(Question, question_id)
+    
     async def get_random_questions(
         self,
         topic: Topic | None,
