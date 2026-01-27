@@ -19,6 +19,9 @@ type ResultsState = {
   questions: QuizQuestion[];
   answers: Record<string, string>;
   mode: QuizMode;
+  raw_score_percent?: number;
+  usedHintsCount?: number;
+  penaltyTotal?: number;
   practiceResults?: Record<
     string,
     { correct: boolean; correctAnswer?: string; explanation?: string | null }
@@ -57,7 +60,13 @@ export default function Results() {
       }, 0)
     : null;
 
-  const scorePercent = isPractice && total ? Math.round((score! / total) * 100) : 0;
+  const computedScorePercent = isPractice && total ? Math.round((score! / total) * 100) : 0;
+  const rawScorePercent = typeof state.raw_score_percent === "number"
+    ? state.raw_score_percent
+    : computedScorePercent;
+  const usedHintsCount = state.usedHintsCount ?? 0;
+  const penaltyTotal = state.penaltyTotal ?? 0;
+  const finalScore = clamp(rawScorePercent - penaltyTotal, 0, 100);
 
   const breakdown = useMemo(() => {
     const byType: Record<string, { correct: number; total: number }> = {};
@@ -175,14 +184,14 @@ export default function Results() {
             </h1>
             <p className="text-sm text-slate-300">
               {isPractice
-                ? `You scored ${scorePercent}% on this quiz.`
+                ? `You scored ${rawScorePercent}% on this quiz.`
                 : "Review what you submitted and try practice mode for explanations."}
             </p>
           </div>
           {isPractice ? (
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center">
               <p className="text-xs text-slate-400">Score</p>
-              <p className="text-2xl font-semibold text-white">{scorePercent}%</p>
+              <p className="text-2xl font-semibold text-white">{finalScore}%</p>
             </div>
           ) : null}
         </div>
@@ -197,6 +206,15 @@ export default function Results() {
 
         {isPractice ? (
           <div className="grid gap-3 text-sm text-slate-200 md:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p className="text-xs font-semibold uppercase text-slate-400">Score summary</p>
+              <div className="mt-2 space-y-1 text-sm text-slate-200">
+                <p>Raw score: {rawScorePercent}%</p>
+                <p>Hints used: {usedHintsCount}</p>
+                <p>Penalty: -{penaltyTotal}</p>
+                <p className="font-semibold text-white">Final score: {finalScore}%</p>
+              </div>
+            </div>
             {Object.entries(breakdown).map(([type, stats]) => (
               <div key={type} className="rounded-xl border border-white/10 bg-white/5 p-3">
                 <p className="text-xs font-semibold uppercase text-slate-400">{type}</p>
@@ -249,6 +267,10 @@ export default function Results() {
 
 function normalize(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function readStoredResults(): ResultsState | null {

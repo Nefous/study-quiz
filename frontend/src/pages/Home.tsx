@@ -8,7 +8,6 @@ import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import ChoiceChips from "../components/ui/ChoiceChips";
 import Segmented from "../components/ui/Segmented";
-import TopicCards from "../components/ui/TopicCards";
 
 const STORAGE_KEY = "quizSetup";
 const FALLBACK_DEFAULT_SIZE = 10;
@@ -16,7 +15,8 @@ const FALLBACK_MAX_SIZE = 20;
 
 export default function Home() {
   const navigate = useNavigate();
-  const [topic, setTopic] = useState<Topic>("python_core");
+  const [selectedTopics, setSelectedTopics] = useState<Topic[]>(["python_core"]);
+  const [randomMix, setRandomMix] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>("junior");
   const [mode, setMode] = useState<QuizMode>("practice");
   const [size, setSize] = useState<number>(FALLBACK_DEFAULT_SIZE);
@@ -25,18 +25,24 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = useMemo(
-    () => Boolean(topic && difficulty && mode && size > 0),
-    [topic, difficulty, mode, size]
-  );
+  const canSubmit = useMemo(() => {
+    if (!difficulty || !mode || size <= 0) return false;
+    if (randomMix) return true;
+    return selectedTopics.length > 0;
+  }, [difficulty, mode, randomMix, selectedTopics.length, size]);
 
   const startQuiz = () => {
     const params = new URLSearchParams({
-      topic,
       difficulty,
       mode,
       size: String(size)
     });
+
+    if (randomMix) {
+      params.set("topic", "random");
+    } else {
+      params.set("topics", selectedTopics.join(","));
+    }
     navigate(`/quiz?${params.toString()}`);
   };
 
@@ -69,12 +75,14 @@ export default function Home() {
     if (cached) {
       try {
         const parsed = JSON.parse(cached) as {
-          topic: Topic;
+          selectedTopics: Topic[];
+          randomMix?: boolean;
           difficulty: Difficulty;
           mode: QuizMode;
           size: number;
         };
-        setTopic(parsed.topic);
+        setSelectedTopics(parsed.selectedTopics || []);
+        setRandomMix(Boolean(parsed.randomMix));
         setDifficulty(parsed.difficulty);
         setMode(parsed.mode);
         setSize(parsed.size);
@@ -93,9 +101,9 @@ export default function Home() {
   useEffect(() => {
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ topic, difficulty, mode, size })
+      JSON.stringify({ selectedTopics, randomMix, difficulty, mode, size })
     );
-  }, [topic, difficulty, mode, size]);
+  }, [selectedTopics, randomMix, difficulty, mode, size]);
 
   useEffect(() => {
     if (size > maxSize) {
@@ -110,6 +118,7 @@ export default function Home() {
   }, [size]);
 
   const topicOptions = (meta?.topics || Object.keys(topicLabels)) as Topic[];
+  const selectableTopics = topicOptions.filter((value) => value !== "random");
   const difficultyOptions = (meta?.difficulties || Object.keys(difficultyLabels)) as Difficulty[];
   const modeOptions = (meta?.modes || Object.keys(modeLabels)) as QuizMode[];
 
@@ -178,28 +187,70 @@ export default function Home() {
 
         <div className="space-y-5">
           <div className="space-y-2">
-            <span className="text-sm font-medium text-slate-200">Topic</span>
-            <TopicCards
-              value={topic}
-              onChange={(value) => setTopic(value as Topic)}
-              options={topicOptions.map((value) => ({
-                value,
-                title: topicLabels[value] ?? value,
-                description:
-                  value === "python_core"
-                    ? "Syntax, data types, and idioms"
-                    : value === "big_o"
-                      ? "Complexity and trade-offs"
-                      : value === "algorithms"
-                        ? "Sorting, searching, patterns"
-                        : "Lists, stacks, queues, trees",
-                icon:
-                  value === "python_core" ? <Code2 size={18} /> :
-                  value === "big_o" ? <LineChart size={18} /> :
-                  value === "algorithms" ? <Sparkles size={18} /> :
-                  <BookOpen size={18} />
-              }))}
-            />
+            <span className="text-sm font-medium text-slate-200">Topics</span>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setRandomMix((prev) => !prev);
+                  if (!randomMix) {
+                    setSelectedTopics([]);
+                  }
+                }}
+                className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                  randomMix
+                    ? "border-indigo-400/60 bg-indigo-400/10 text-white"
+                    : "border-white/10 text-slate-200 hover:border-white/30"
+                }`}
+              >
+                <div>
+                  <p className="font-semibold">Random Mix</p>
+                  <p className="text-xs text-slate-400">Mix questions from all topics.</p>
+                </div>
+                <span className="text-xs font-semibold">{randomMix ? "On" : "Off"}</span>
+              </button>
+
+              <div className="grid gap-2">
+                {selectableTopics.map((value) => {
+                  const checked = selectedTopics.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={randomMix}
+                      onClick={() => {
+                        setSelectedTopics((prev) =>
+                          checked
+                            ? prev.filter((item) => item !== value)
+                            : [...prev, value]
+                        );
+                      }}
+                      className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                        checked
+                          ? "border-indigo-400/60 bg-indigo-400/10 text-white"
+                          : "border-white/10 text-slate-200 hover:border-white/30"
+                      } ${randomMix ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20">
+                        {checked ? "✓" : ""}
+                      </div>
+                      <div>
+                        <p className="font-semibold">{topicLabels[value] ?? value}</p>
+                        <p className="text-xs text-slate-400">
+                          {value === "python_core"
+                            ? "Syntax, data types, and idioms"
+                            : value === "big_o"
+                              ? "Complexity and trade-offs"
+                              : value === "algorithms"
+                                ? "Sorting, searching, patterns"
+                                : "Lists, stacks, queues, trees"}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -259,7 +310,9 @@ export default function Home() {
             Start Quiz
           </Button>
           {!canSubmit ? (
-            <p className="text-xs text-rose-200">Select a topic, difficulty, mode, and size.</p>
+            <p className="text-xs text-rose-200">
+              Select at least one topic (or enable Random Mix), difficulty, mode, and size.
+            </p>
           ) : null}
         </div>
       </Card>

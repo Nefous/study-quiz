@@ -4,7 +4,8 @@ export type QuestionType = "mcq" | "code_output";
 export type QuizMode = "practice" | "exam";
 
 export type QuizGenerateRequest = {
-  topic: Topic;
+  topic?: Topic;
+  topics?: Topic[];
   difficulty: Difficulty;
   mode: QuizMode;
   size?: number;

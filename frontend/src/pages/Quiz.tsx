@@ -28,6 +28,8 @@ type PracticeResult = {
 
 const STORAGE_PREFIX = "quizstate";
 const RESULTS_PREFIX = "quizresults";
+const MAX_HINTS = 3;
+const HINT_PENALTIES: Record<number, number> = { 1: 1, 2: 2, 3: 3 };
 
 export default function Quiz() {
   const navigate = useNavigate();
@@ -44,9 +46,13 @@ export default function Quiz() {
   const [hintByQuestionId, setHintByQuestionId] = useState<Record<string, string>>({});
   const [hintLoadingByQuestionId, setHintLoadingByQuestionId] = useState<Record<string, boolean>>({});
   const [hintErrorByQuestionId, setHintErrorByQuestionId] = useState<Record<string, string>>({});
+  const [usedHintsCount, setUsedHintsCount] = useState(0);
+  const [penaltyTotal, setPenaltyTotal] = useState(0);
+  const [hintsUsedByQuestion, setHintsUsedByQuestion] = useState<Record<string, number>>({});
 
   const settings = useMemo<QuizGenerateRequest | null>(() => {
     const topic = params.get("topic") as Topic | null;
+    const topicsParam = params.get("topics");
     const difficulty = params.get("difficulty") as Difficulty | null;
     const mode = params.get("mode") as QuizMode | null;
     const sizeParam = params.get("size");
@@ -56,13 +62,33 @@ export default function Quiz() {
     const validDifficulties = Object.keys(difficultyLabels) as Difficulty[];
     const validModes = Object.keys(modeLabels) as QuizMode[];
 
-    if (!topic || !difficulty || !mode) return null;
-    if (!validTopics.includes(topic)) return null;
+    if (!difficulty || !mode) return null;
+
+    let topics: Topic[] | null = null;
+    if (topicsParam) {
+      const parsed = topicsParam
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0) as Topic[];
+      const filtered = parsed.filter((item) => validTopics.includes(item) && item !== "random");
+      if (!filtered.length) return null;
+      topics = Array.from(new Set(filtered));
+    } else if (topic) {
+      if (!validTopics.includes(topic)) return null;
+      if (topic === "random") {
+        topics = null;
+      } else {
+        topics = [topic];
+      }
+    } else {
+      return null;
+    }
     if (!validDifficulties.includes(difficulty)) return null;
     if (!validModes.includes(mode)) return null;
 
     return {
-      topic,
+      topic: topic === "random" ? "random" : undefined,
+      topics: topics ?? undefined,
       difficulty,
       mode,
       size: Number.isFinite(size) ? Math.max(1, Number(size)) : undefined
@@ -71,7 +97,10 @@ export default function Quiz() {
 
   const storageKey = useMemo(() => {
     if (!settings) return `${STORAGE_PREFIX}:invalid`;
-    return `${STORAGE_PREFIX}:${settings.topic}:${settings.difficulty}:${settings.mode}:${
+    const topicsKey = settings.topic === "random"
+      ? "random"
+      : settings.topics?.join("|") || "none";
+    return `${STORAGE_PREFIX}:${topicsKey}:${settings.difficulty}:${settings.mode}:${
       settings.size ?? "default"
     }`;
   }, [settings]);
@@ -100,6 +129,9 @@ export default function Quiz() {
               hintByQuestionId?: Record<string, string>;
               hintLoadingByQuestionId?: Record<string, boolean>;
               hintErrorByQuestionId?: Record<string, string>;
+              usedHintsCount?: number;
+              penaltyTotal?: number;
+              hintsUsedByQuestion?: Record<string, number>;
             };
             if (parsed?.quiz?.questions?.length) {
               if (active) {
@@ -111,6 +143,9 @@ export default function Quiz() {
                 setHintByQuestionId(parsed.hintByQuestionId || {});
                 setHintLoadingByQuestionId(parsed.hintLoadingByQuestionId || {});
                 setHintErrorByQuestionId(parsed.hintErrorByQuestionId || {});
+                setUsedHintsCount(parsed.usedHintsCount || 0);
+                setPenaltyTotal(parsed.penaltyTotal || 0);
+                setHintsUsedByQuestion(parsed.hintsUsedByQuestion || {});
                 setLoading(false);
               }
               return;
@@ -158,10 +193,13 @@ export default function Quiz() {
         currentIndex,
         hintByQuestionId,
         hintLoadingByQuestionId,
-        hintErrorByQuestionId
+        hintErrorByQuestionId,
+        usedHintsCount,
+        penaltyTotal,
+        hintsUsedByQuestion
       })
     );
-  }, [answers, currentIndex, hintByQuestionId, hintErrorByQuestionId, hintLoadingByQuestionId, quiz, results, storageKey, submitted]);
+  }, [answers, currentIndex, hintByQuestionId, hintErrorByQuestionId, hintLoadingByQuestionId, hintsUsedByQuestion, penaltyTotal, quiz, results, storageKey, submitted, usedHintsCount]);
 
   if (!settings) {
     return null;
@@ -229,13 +267,31 @@ export default function Quiz() {
       return;
     }
 
+    const totalQuestions = questions.length;
+    const rawScore = isPractice
+      ? questions.reduce((acc, current) => {
+          if (results[current.id]) {
+            return acc + (results[current.id].correct ? 1 : 0);
+          }
+          const expected = normalizeAnswer(current.correct_answer ?? "");
+          const provided = normalizeAnswer(answers[current.id] ?? "");
+          return acc + (expected === provided ? 1 : 0);
+        }, 0)
+      : 0;
+    const rawScorePercent = totalQuestions
+      ? Math.round((rawScore / totalQuestions) * 100)
+      : 0;
+
     const payload = {
       settings,
       quiz_id: quiz.quiz_id,
       questions,
       answers,
       mode: settings.mode,
-      practiceResults: results
+      practiceResults: results,
+      raw_score_percent: rawScorePercent,
+      usedHintsCount,
+      penaltyTotal
     };
     sessionStorage.setItem(`${RESULTS_PREFIX}:${quiz.quiz_id}`, JSON.stringify(payload));
     sessionStorage.setItem(`${RESULTS_PREFIX}:last`, JSON.stringify(payload));
@@ -256,6 +312,10 @@ export default function Quiz() {
 
   const handleHint = async () => {
     if (hintByQuestionId[hintKey]) return;
+    if (usedHintsCount >= MAX_HINTS) {
+      setHintErrorByQuestionId((prev) => ({ ...prev, [hintKey]: "Hint limit reached" }));
+      return;
+    }
 
     const payload: { user_answer?: string; level: number } = {
       level: hintLevel
@@ -275,6 +335,13 @@ export default function Quiz() {
     try {
       const response = await getHint(question.id, payload);
       setHintByQuestionId((prev) => ({ ...prev, [hintKey]: response.hint }));
+      const penalty = HINT_PENALTIES[hintLevel] ?? 0;
+      setUsedHintsCount((prev) => prev + 1);
+      setPenaltyTotal((prev) => prev + penalty);
+      setHintsUsedByQuestion((prev) => ({
+        ...prev,
+        [question.id]: (prev[question.id] ?? 0) + 1
+      }));
     } catch (err) {
       const apiError = err as ApiError;
       const message = apiError?.message || (err instanceof Error ? err.message : "Failed to get hint");
@@ -415,6 +482,12 @@ export default function Quiz() {
             <Button onClick={handleHint} disabled={Boolean(hintLoading)}>
               {hintLoading ? "Generating hint..." : "Get Hint"}
             </Button>
+            <div className="text-xs text-slate-400">
+              Hints: {usedHintsCount}/{MAX_HINTS}
+            </div>
+            <div className="text-xs text-slate-400">
+              Penalty: -{penaltyTotal}
+            </div>
             {hintLoading ? (
               <div className="flex items-center gap-2 text-xs text-slate-300">
                 <Spinner />
