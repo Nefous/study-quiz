@@ -27,12 +27,15 @@ class QuestionRepository:
     async def list_questions_filtered(
         self,
         topic: Topic | None = None,
+        topics: list[Topic] | None = None,
         difficulty: Difficulty | None = None,
         qtype: QuestionType | None = None,
         limit: int | None = None,
     ) -> list[Question]:
         stmt = select(Question)
-        if topic is not None:
+        if topics:
+            stmt = stmt.where(Question.topic.in_(topics))
+        elif topic is not None:
             stmt = stmt.where(Question.topic == topic)
         if difficulty is not None:
             stmt = stmt.where(Question.difficulty == difficulty)
@@ -48,11 +51,14 @@ class QuestionRepository:
     async def count_questions(
         self,
         topic: Topic | None = None,
+        topics: list[Topic] | None = None,
         difficulty: Difficulty | None = None,
         qtype: QuestionType | None = None,
     ) -> int:
         stmt = select(func.count(Question.id))
-        if topic is not None:
+        if topics:
+            stmt = stmt.where(Question.topic.in_(topics))
+        elif topic is not None:
             stmt = stmt.where(Question.topic == topic)
         if difficulty is not None:
             stmt = stmt.where(Question.difficulty == difficulty)
@@ -68,12 +74,15 @@ class QuestionRepository:
     async def get_random_questions(
         self,
         topic: Topic | None,
+        topics: list[Topic] | None,
         difficulty: Difficulty | None,
         qtype: QuestionType | None,
         limit: int,
     ) -> list[Question]:
         stmt = select(Question)
-        if topic is not None:
+        if topics:
+            stmt = stmt.where(Question.topic.in_(topics))
+        elif topic is not None:
             stmt = stmt.where(Question.topic == topic)
         if difficulty is not None:
             stmt = stmt.where(Question.difficulty == difficulty)

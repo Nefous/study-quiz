@@ -15,7 +15,7 @@ class QuizService:
 
     async def generate_quiz(
         self,
-        topic: Topic,
+        topics: list[Topic] | None,
         difficulty: Difficulty,
         mode: QuizMode,
         size: int | None,
@@ -24,14 +24,16 @@ class QuizService:
         requested_size = size or self.settings.DEFAULT_QUIZ_SIZE
         requested_size = min(requested_size, self.settings.MAX_QUESTIONS_PER_QUIZ)
 
-        topic_filter = None if topic == Topic.RANDOM else topic
-
-        available = await repo.count_questions(topic=topic_filter, difficulty=difficulty)
+        available = await repo.count_questions(
+            topics=topics or None,
+            difficulty=difficulty,
+        )
         if available < requested_size:
             raise ValueError("Not enough questions for the requested filter")
 
         picked = await repo.get_random_questions(
-            topic=topic_filter,
+            topic=None,
+            topics=topics or None,
             difficulty=difficulty,
             qtype=None,
             limit=requested_size,

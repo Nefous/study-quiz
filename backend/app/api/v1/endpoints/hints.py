@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,11 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.integrations.hint_chain import generate_hint
+from app.repositories.hint_usage_repo import HintUsageRepository
 from app.repositories.question_repo import QuestionRepository
 from app.schemas.hint import HintRequest, HintResponse
 from app.utils.enums import QuestionType
 
 router = APIRouter(prefix="/questions", tags=["hints"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/{question_id}/hint", response_model=HintResponse)
@@ -41,4 +44,17 @@ async def hint(
     }
 
     hint_text = await generate_hint(payload)
+
+    try:
+        penalty_points = int(body.level)
+        usage_repo = HintUsageRepository(session)
+        await usage_repo.create_usage(
+            attempt_id=body.attempt_id,
+            question_id=question.id,
+            level=body.level,
+            penalty_points=penalty_points,
+        )
+    except Exception:
+        logger.exception("Failed to log hint usage")
+
     return HintResponse(hint=hint_text)

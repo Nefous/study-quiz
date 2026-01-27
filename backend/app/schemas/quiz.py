@@ -6,7 +6,8 @@ from app.utils.enums import Difficulty, QuestionType, QuizMode, Topic
 
 
 class QuizGenerateRequest(BaseModel):
-    topic: Topic
+    topic: Topic | None = None
+    topics: list[Topic] | None = None
     difficulty: Difficulty
     mode: QuizMode
     size: int | None = None

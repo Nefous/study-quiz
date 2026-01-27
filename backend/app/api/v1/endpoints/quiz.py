@@ -23,10 +23,29 @@ async def generate_quiz(
     body: dict = Body(...),
     session: AsyncSession = Depends(get_session),
 ) -> QuizGenerateResponse:
-    if "topic" not in body or "difficulty" not in body or "mode" not in body:
-        raise HTTPException(status_code=400, detail="Missing topic/difficulty/mode")
+    if "difficulty" not in body or "mode" not in body:
+        raise HTTPException(status_code=400, detail="Missing difficulty/mode")
 
-    topic = parse_enum(body.get("topic"), Topic, "topic")
+    topic_raw = body.get("topic")
+    topics_raw = body.get("topics")
+    topics: list[Topic] | None = None
+
+    if topics_raw is not None:
+        if not isinstance(topics_raw, list) or not topics_raw:
+            raise HTTPException(status_code=400, detail="Invalid topics")
+        topics = [parse_enum(item, Topic, "topics") for item in topics_raw]
+        if Topic.RANDOM in topics:
+            topics = [t for t in Topic if t != Topic.RANDOM]
+    elif topic_raw is not None:
+        topic = parse_enum(topic_raw, Topic, "topic")
+        if topic == Topic.RANDOM:
+            topics = [t for t in Topic if t != Topic.RANDOM]
+        else:
+            topics = [topic]
+    else:
+        raise HTTPException(status_code=400, detail="Missing topic or topics")
+
+    topics = list(dict.fromkeys(topics)) if topics else None
     difficulty = parse_enum(body.get("difficulty"), Difficulty, "difficulty")
     mode = parse_enum(body.get("mode"), QuizMode, "mode")
 
@@ -36,7 +55,8 @@ async def generate_quiz(
             raise HTTPException(status_code=400, detail="Invalid size")
 
     payload = QuizGenerateRequest(
-        topic=topic,
+        topic=None,
+        topics=topics,
         difficulty=difficulty,
         mode=mode,
         size=size,
@@ -45,7 +65,7 @@ async def generate_quiz(
     service = QuizService(session)
     try:
         return await service.generate_quiz(
-            topic=payload.topic,
+            topics=payload.topics,
             difficulty=payload.difficulty,
             mode=payload.mode,
             size=payload.size,
