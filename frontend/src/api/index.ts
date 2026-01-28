@@ -10,34 +10,36 @@ import type {
   AttemptOut,
   AttemptStats
 } from "./types";
-import { getHint, request } from "./client";
+import { apiUrl, getHint, request } from "./client";
 
 export async function generateQuiz(
   payload: QuizGenerateRequest
 ): Promise<QuizGenerateResponse> {
-  return request<QuizGenerateResponse>("/quiz/generate", {
+  return request<QuizGenerateResponse>(apiUrl("/quiz/generate"), {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
 export async function getMeta(): Promise<MetaResponse> {
-  return request<MetaResponse>("/meta");
+  return request<MetaResponse>(apiUrl("/meta"));
 }
 
 export async function createAttempt(payload: AttemptCreate): Promise<AttemptOut> {
-  return request<AttemptOut>("/attempts", {
+  return request<AttemptOut>(apiUrl("/attempts"), {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
 export async function listAttempts(limit = 20, offset = 0): Promise<AttemptOut[]> {
-  return request<AttemptOut[]>(`/attempts?limit=${limit}&offset=${offset}`);
+  return request<AttemptOut[]>(
+    apiUrl(`/attempts?limit=${limit}&offset=${offset}`)
+  );
 }
 
 export async function getAttemptStats(): Promise<AttemptStats> {
-  return request<AttemptStats>("/attempts/stats");
+  return request<AttemptStats>(apiUrl("/attempts/stats"));
 }
 
 export { getHint };

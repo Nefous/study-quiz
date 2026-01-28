@@ -1,14 +1,37 @@
 import type { PropsWithChildren } from "react";
 import { cn } from "./cn";
 
+export type CardProps = PropsWithChildren<{
+  className?: string;
+  variant?: "default" | "elevated" | "subtle";
+  padding?: "none" | "sm" | "md" | "lg";
+}>;
+
+const variants = {
+  default: "border-white/[0.08] bg-white/[0.03] backdrop-blur-sm",
+  elevated: "border-white/[0.08] bg-white/[0.04] backdrop-blur-md shadow-xl shadow-black/20",
+  subtle: "border-white/[0.05] bg-white/[0.02]"
+};
+
+const paddings = {
+  none: "",
+  sm: "p-4",
+  md: "p-5",
+  lg: "p-6"
+};
+
 export default function Card({
   children,
-  className
-}: PropsWithChildren<{ className?: string }>) {
+  className,
+  variant = "default",
+  padding = "lg"
+}: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-white/10 bg-white/5 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.45)] backdrop-blur",
+        "rounded-2xl border",
+        variants[variant],
+        paddings[padding],
         className
       )}
     >

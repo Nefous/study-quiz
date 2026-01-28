@@ -1,21 +1,36 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { createAttempt, listAttempts, difficultyLabels, modeLabels, topicLabels } from "../api";
-import type { AttemptOut, QuizMode, QuizQuestion } from "../api/types";
-import Accordion from "../components/ui/Accordion";
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  AlertTriangle,
+  Award,
+  ChevronDown,
+  ChevronUp,
+  History,
+  Lightbulb,
+  RefreshCw,
+  Target,
+  Trophy
+} from "lucide-react";
+import { createAttempt, difficultyLabels, topicLabels } from "../api";
+import type { QuizMode, QuizQuestion, Topic } from "../api/types";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import CodeBlock from "../components/ui/CodeBlock";
+import PageHeader from "../components/ui/PageHeader";
+import StatCard from "../components/ui/StatCard";
+import { cn } from "../components/ui/cn";
 
 type ResultsState = {
   settings: {
     topic: string;
+    topics?: Topic[];
     difficulty: string;
     mode: QuizMode;
     size?: number;
   };
   quiz_id: string;
+  attempt_id?: string;
   questions: QuizQuestion[];
   answers: Record<string, string>;
   mode: QuizMode;
@@ -31,24 +46,28 @@ type ResultsState = {
 export default function Results() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [history, setHistory] = useState<AttemptOut[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const state = (location.state as ResultsState | null) ?? readStoredResults();
 
   if (!state) {
     return (
-      <Card className="mx-auto max-w-3xl space-y-4">
-        <p className="text-sm text-slate-300">No results to show yet.</p>
-        <Link className="inline-flex text-sm text-slate-200 underline" to="/">
-          Back to home
-        </Link>
-      </Card>
+      <div className="mx-auto max-w-3xl">
+        <Card variant="elevated" className="space-y-4 text-center">
+          <AlertTriangle size={48} className="mx-auto text-amber-400" />
+          <div>
+            <p className="text-lg font-semibold text-white">No results to show</p>
+            <p className="mt-1 text-sm text-slate-400">
+              Complete a quiz to see your results here.
+            </p>
+          </div>
+          <Button onClick={() => navigate("/")}>Start a Quiz</Button>
+        </Card>
+      </div>
     );
   }
 
   const { settings, questions, answers, mode, practiceResults } = state;
+  const attemptId = state.attempt_id ?? state.quiz_id ?? crypto.randomUUID();
   const isPractice = mode === "practice";
 
   const total = questions.length;
@@ -71,9 +90,17 @@ export default function Results() {
   const penaltyTotal = state.penaltyTotal ?? 0;
   const finalScore = clamp(rawScorePercent - penaltyTotal, 0, 100);
 
+  const displayTopic = settings.topic === "random"
+    ? "Random"
+    : settings.topics && settings.topics.length > 1
+      ? "Mix"
+      : settings.topics && settings.topics.length === 1
+        ? topicLabels[settings.topics[0]]
+        : topicLabels[settings.topic as keyof typeof topicLabels] ?? settings.topic;
+
   useEffect(() => {
     if (!state) return;
-    const storageKey = `attempt_saved:${state.quiz_id}`;
+    const storageKey = `attempt_saved_${attemptId}`;
     if (localStorage.getItem(storageKey)) return;
 
     const totalCount = questions.length;
@@ -89,8 +116,16 @@ export default function Results() {
         }, 0)
       : 0;
 
+    const selectedTopics = settings.topics ?? [];
+    const topicValue = settings.topic === "random"
+      ? "random"
+      : selectedTopics.length > 1
+        ? "mix"
+        : selectedTopics[0] ?? settings.topic;
+
     const attemptPayload = {
-      topic: settings.topic,
+      topic: topicValue,
+      meta: selectedTopics.length > 1 ? { topics: selectedTopics } : undefined,
       difficulty: settings.difficulty,
       mode: settings.mode,
       size: settings.size,
@@ -115,33 +150,7 @@ export default function Results() {
       .catch(() => {
         localStorage.removeItem(storageKey);
       });
-  }, [answers, isPractice, practiceResults, questions, settings, state]);
-
-  useEffect(() => {
-    let active = true;
-    const loadHistory = async () => {
-      try {
-        setHistoryLoading(true);
-        const items = await listAttempts(10, 0);
-        if (active) {
-          setHistory(items);
-        }
-      } catch (err) {
-        if (active) {
-          setHistoryError(err instanceof Error ? err.message : "Failed to load attempts");
-        }
-      } finally {
-        if (active) {
-          setHistoryLoading(false);
-        }
-      }
-    };
-
-    loadHistory();
-    return () => {
-      active = false;
-    };
-  }, []);
+  }, [answers, attemptId, isPractice, practiceResults, questions, settings, state]);
 
   const breakdown = useMemo(() => {
     const byType: Record<string, { correct: number; total: number }> = {};
@@ -161,228 +170,293 @@ export default function Results() {
     return byType;
   }, [answers, isPractice, practiceResults, questions]);
 
-  const summaryChips = [
-    topicLabels[settings.topic as keyof typeof topicLabels] ?? settings.topic,
-    difficultyLabels[settings.difficulty as keyof typeof difficultyLabels] ??
-      settings.difficulty,
-    modeLabels[mode],
-    `Size ${settings.size ?? questions.length}`
-  ];
-
-  const items = questions.map((question, index) => {
-    const shortPrompt = question.prompt.replace(/\s+/g, " ").slice(0, 90);
-    const result = practiceResults?.[question.id];
-    const isCorrect =
-      result?.correct ??
-      normalize(question.correct_answer ?? "") ===
-        normalize(answers[question.id] ?? "");
-    const { before, code, after, language } = parsePrompt(question.prompt);
-
-    return {
-      id: question.id,
-      header: (
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-slate-400">Question {index + 1}</p>
-            <p className="text-sm font-semibold text-white">
-              {shortPrompt}{shortPrompt.length >= 90 ? "…" : ""}
-            </p>
-          </div>
-          {isPractice ? (
-            <Badge tone={isCorrect ? "success" : "error"}>
-              {isCorrect ? "✓" : "✗"}
-            </Badge>
-          ) : null}
-        </div>
-      ),
-      content: (
-        <div className="space-y-4">
-          {before ? (
-            <p className="whitespace-pre-wrap text-sm text-slate-200">{before}</p>
-          ) : null}
-          {code ? <CodeBlock code={code} language={language} /> : null}
-          {after ? (
-            <p className="whitespace-pre-wrap text-sm text-slate-200">{after}</p>
-          ) : null}
-
-          <div>
-            <p className="text-xs font-semibold uppercase text-slate-400">Your answer</p>
-            <div className="mt-2 rounded-xl border border-white/10 bg-slate-950/60 p-3 font-mono text-sm text-slate-100">
-              {answers[question.id] || "—"}
-            </div>
-          </div>
-
-          {isPractice ? (
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-semibold uppercase text-slate-400">Correct answer</p>
-                <div className="mt-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 font-mono text-sm text-emerald-100">
-                  {result?.correctAnswer ?? question.correct_answer ?? "—"}
-                </div>
-              </div>
-              {result?.explanation || question.explanation ? (
-                <details className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-                  <summary className="cursor-pointer font-semibold text-slate-100">
-                    Explanation
-                  </summary>
-                  <p className="mt-2">
-                    {result?.explanation ?? question.explanation}
-                  </p>
-                </details>
-              ) : null}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-400">
-              Want feedback? Switch to practice mode for explanations.
-            </p>
-          )}
-        </div>
-      )
-    };
-  });
-
   const query = new URLSearchParams({
-    topic: settings.topic,
     difficulty: settings.difficulty,
     mode: settings.mode,
     size: String(settings.size ?? questions.length)
   });
 
+  if (settings.topic === "random") {
+    query.set("topic", "random");
+  } else if (settings.topics && settings.topics.length > 0) {
+    query.set("topics", settings.topics.join(","));
+  } else {
+    query.set("topic", settings.topic);
+  }
+
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
-      <Card className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs text-slate-400">Results</p>
-            <h1 className="text-3xl font-semibold text-white">
-              {isPractice ? `${score} / ${total}` : "Quiz submitted"}
-            </h1>
-            <p className="text-sm text-slate-300">
-              {isPractice
-                ? `You scored ${rawScorePercent}% on this quiz.`
-                : "Review what you submitted and try practice mode for explanations."}
-            </p>
-          </div>
-          {isPractice ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center">
-              <p className="text-xs text-slate-400">Score</p>
-              <p className="text-2xl font-semibold text-white">{finalScore}%</p>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {summaryChips.map((chip) => (
-            <Badge key={chip} tone="neutral">
-              {chip}
+    <div className="mx-auto max-w-3xl space-y-8">
+      {/* Header */}
+      <PageHeader
+        badge={isPractice ? "Practice Complete" : "Exam Complete"}
+        title={
+          isPractice
+            ? `You scored ${finalScore}%`
+            : "Quiz submitted successfully"
+        }
+        description={
+          isPractice
+            ? `${score} out of ${total} questions answered correctly.`
+            : "Switch to practice mode to see detailed feedback."
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            <Badge
+              tone={
+                finalScore >= 80
+                  ? "success"
+                  : finalScore >= 50
+                    ? "warning"
+                    : "error"
+              }
+            >
+              {displayTopic}
             </Badge>
-          ))}
-        </div>
-
-        {isPractice ? (
-          <div className="grid gap-3 text-sm text-slate-200 md:grid-cols-2">
-            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <p className="text-xs font-semibold uppercase text-slate-400">Score summary</p>
-              <div className="mt-2 space-y-1 text-sm text-slate-200">
-                <p>Raw score: {rawScorePercent}%</p>
-                <p>Hints used: {usedHintsCount}</p>
-                <p>Penalty: -{penaltyTotal}</p>
-                <p className="font-semibold text-white">Final score: {finalScore}%</p>
-              </div>
-            </div>
-            {Object.entries(breakdown).map(([type, stats]) => (
-              <div key={type} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                <p className="text-xs font-semibold uppercase text-slate-400">{type}</p>
-                <div className="mt-2 flex items-center justify-between text-sm text-slate-200">
-                  <span>
-                    {stats.correct} / {stats.total} correct
-                  </span>
-                  <span>{Math.round((stats.correct / stats.total) * 100)}%</span>
-                </div>
-                <div className="mt-2 h-1.5 rounded-full bg-white/10">
-                  <div
-                    className="h-1.5 rounded-full bg-indigo-400"
-                    style={{ width: `${(stats.correct / stats.total) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+            <Badge tone="neutral">
+              {difficultyLabels[settings.difficulty as keyof typeof difficultyLabels] ?? settings.difficulty}
+            </Badge>
           </div>
-        ) : null}
-      </Card>
-
-      <Accordion
-        items={items}
-        openId={openId}
-        onToggle={(id) => setOpenId((prev) => (prev === id ? null : id))}
+        }
       />
 
-      <Card className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Attempt history</h2>
-          <p className="text-sm text-slate-400">Last 10 quiz attempts.</p>
+      {/* Stats cards */}
+      {isPractice ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Final Score"
+            value={`${finalScore}%`}
+            icon={<Trophy size={20} />}
+            trend={finalScore >= 70 ? "up" : finalScore < 50 ? "down" : "neutral"}
+          />
+          <StatCard
+            label="Correct"
+            value={`${score}/${total}`}
+            icon={<Target size={20} />}
+          />
+          <StatCard
+            label="Hints Used"
+            value={usedHintsCount}
+            icon={<Lightbulb size={20} />}
+          />
+          <StatCard
+            label="Penalty"
+            value={`${penaltyTotal > 0 ? '-' : ''}${penaltyTotal}%`}
+            icon={<AlertTriangle size={20} />}
+            trend={penaltyTotal > 0 ? "down" : "neutral"}
+          />
         </div>
+      ) : null}
 
-        {historyLoading ? (
-          <p className="text-sm text-slate-300">Loading attempts...</p>
-        ) : null}
-
-        {historyError ? (
-          <p className="text-sm text-rose-200">{historyError}</p>
-        ) : null}
-
-        {!historyLoading && !historyError ? (
-          <div className="space-y-2">
-            {history.length ? (
-              history.map((item) => (
+      {/* Breakdown by type */}
+      {isPractice && Object.keys(breakdown).length > 0 ? (
+        <Card variant="elevated" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Breakdown by Type</h2>
+            <p className="text-sm text-slate-400">Performance across question types</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Object.entries(breakdown).map(([type, stats]) => {
+              const percent = Math.round((stats.correct / stats.total) * 100);
+              return (
                 <div
-                  key={item.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200"
+                  key={type}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
                 >
-                  <div>
-                    <p className="text-xs text-slate-400">
-                      {new Date(item.created_at).toLocaleString()}
-                    </p>
-                    <p className="font-semibold text-white">
-                      {topicLabels[item.topic as keyof typeof topicLabels] ?? item.topic} · {difficultyLabels[item.difficulty as keyof typeof difficultyLabels] ?? item.difficulty}
-                    </p>
+                  <div className="flex items-center justify-between">
+                    <Badge tone="neutral" className="capitalize">
+                      {type === "mcq" ? "Multiple Choice" : "Code Output"}
+                    </Badge>
+                    <span className="text-sm font-semibold text-white">
+                      {percent}%
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-400">Score</p>
-                    <p className="font-semibold text-white">
-                      {item.score_percent}% ({item.correct_count}/{item.total_count})
-                    </p>
+                  <p className="mt-2 text-sm text-slate-400">
+                    {stats.correct} of {stats.total} correct
+                  </p>
+                  <div className="mt-3 h-1.5 rounded-full bg-white/10">
+                    <div
+                      className={cn(
+                        "h-1.5 rounded-full transition-all",
+                        percent >= 70
+                          ? "bg-emerald-400"
+                          : percent >= 50
+                            ? "bg-amber-400"
+                            : "bg-rose-400"
+                      )}
+                      style={{ width: `${percent}%` }}
+                    />
                   </div>
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-slate-300">No attempts yet.</p>
-            )}
+              );
+            })}
           </div>
-        ) : null}
+        </Card>
+      ) : null}
+
+      {/* Question review */}
+      <Card variant="elevated" className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Question Review</h2>
+          <p className="text-sm text-slate-400">
+            Expand each question to see details
+          </p>
+        </div>
+
+        <div className="divide-y divide-white/[0.06]">
+          {questions.map((question, index) => {
+            const result = practiceResults?.[question.id];
+            const isCorrect =
+              result?.correct ??
+              normalize(question.correct_answer ?? "") ===
+                normalize(answers[question.id] ?? "");
+            const isExpanded = expandedId === question.id;
+            const { before, code, after, language } = parsePrompt(question.prompt);
+
+            return (
+              <div key={question.id} className="py-4 first:pt-0 last:pb-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedId((prev) =>
+                      prev === question.id ? null : question.id
+                    )
+                  }
+                  className="flex w-full items-center justify-between gap-4 text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    {isPractice ? (
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold",
+                          isCorrect
+                            ? "bg-emerald-400/15 text-emerald-400"
+                            : "bg-rose-400/15 text-rose-400"
+                        )}
+                      >
+                        {isCorrect ? "✓" : "✗"}
+                      </div>
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-sm font-bold text-slate-400">
+                        {index + 1}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        Question {index + 1}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {question.prompt.replace(/\s+/g, " ").slice(0, 60)}
+                        {question.prompt.length > 60 ? "…" : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge tone="neutral" className="text-xs">
+                      {question.type === "mcq" ? "MCQ" : "Code"}
+                    </Badge>
+                    {isExpanded ? (
+                      <ChevronUp size={16} className="text-slate-400" />
+                    ) : (
+                      <ChevronDown size={16} className="text-slate-400" />
+                    )}
+                  </div>
+                </button>
+
+                {isExpanded ? (
+                  <div className="mt-4 space-y-4 pl-11">
+                    {/* Question prompt */}
+                    <div className="space-y-2 text-sm text-slate-300">
+                      {before ? <p className="whitespace-pre-wrap">{before}</p> : null}
+                      {code ? <CodeBlock code={code} language={language} /> : null}
+                      {after ? <p className="whitespace-pre-wrap">{after}</p> : null}
+                    </div>
+
+                    {/* Your answer */}
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                        Your answer
+                      </p>
+                      <p className="mt-2 font-mono text-sm text-slate-200">
+                        {answers[question.id] || "—"}
+                      </p>
+                    </div>
+
+                    {/* Correct answer (practice mode) */}
+                    {isPractice ? (
+                      <div
+                        className={cn(
+                          "rounded-xl border p-4",
+                          isCorrect
+                            ? "border-emerald-400/20 bg-emerald-400/5"
+                            : "border-rose-400/20 bg-rose-400/5"
+                        )}
+                      >
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                          Correct answer
+                        </p>
+                        <p
+                          className={cn(
+                            "mt-2 font-mono text-sm",
+                            isCorrect ? "text-emerald-300" : "text-rose-300"
+                          )}
+                        >
+                          {result?.correctAnswer ?? question.correct_answer ?? "—"}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {/* Explanation */}
+                    {isPractice && (result?.explanation || question.explanation) ? (
+                      <details className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                        <summary className="cursor-pointer text-sm font-medium text-slate-300 hover:text-white">
+                          View explanation
+                        </summary>
+                        <p className="mt-3 text-sm leading-relaxed text-slate-400">
+                          {result?.explanation ?? question.explanation}
+                        </p>
+                      </details>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
       </Card>
 
-      <div className="flex flex-wrap gap-3">
-        <Button onClick={() => navigate(`/quiz?${query.toString()}`)}>Try again</Button>
-        <Button variant="secondary" onClick={() => navigate("/")}>Back to home</Button>
-        <Button variant="secondary" onClick={() => navigate("/history")}>History</Button>
+      {/* Action buttons */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button onClick={() => navigate(`/quiz?${query.toString()}`)}>
+          <RefreshCw size={16} />
+          Try Again
+        </Button>
+        <Button variant="secondary" onClick={() => navigate("/history")}>
+          <History size={16} />
+          View History
+        </Button>
+        <Button variant="ghost" onClick={() => navigate("/")}>
+          Back to Home
+        </Button>
         {mode === "exam" ? (
           <Button
             variant="ghost"
             onClick={() =>
-              navigate(`/quiz?${new URLSearchParams({
-                topic: settings.topic,
-                difficulty: settings.difficulty,
-                mode: "practice",
-                size: String(settings.size ?? questions.length)
-              }).toString()}`)
+              navigate(
+                `/quiz?${new URLSearchParams({
+                  topic: settings.topic,
+                  difficulty: settings.difficulty,
+                  mode: "practice",
+                  size: String(settings.size ?? questions.length)
+                }).toString()}`
+              )
             }
           >
-            Switch to practice
+            <Award size={16} />
+            Switch to Practice
           </Button>
         ) : null}
       </div>
-    </section>
+    </div>
   );
 }
 

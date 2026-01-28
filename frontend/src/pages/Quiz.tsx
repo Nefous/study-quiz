@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  AlertTriangle,
+  ChevronRight,
+  Code2,
+  HelpCircle,
+  Lightbulb,
+  ListChecks,
+  LogOut,
+  Send,
+  Sparkles
+} from "lucide-react";
 import { generateQuiz, getHint, difficultyLabels, modeLabels, topicLabels } from "../api";
 import type {
   Difficulty,
@@ -15,7 +26,9 @@ import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import CodeBlock from "../components/ui/CodeBlock";
+import Drawer from "../components/ui/Drawer";
 import Modal from "../components/ui/Modal";
+import OptionCard from "../components/ui/OptionCard";
 import Progress from "../components/ui/Progress";
 import Spinner from "../components/ui/Spinner";
 import { cn } from "../components/ui/cn";
@@ -29,11 +42,21 @@ type PracticeResult = {
 const STORAGE_PREFIX = "quizstate";
 const RESULTS_PREFIX = "quizresults";
 const MAX_HINTS = 3;
-const HINT_PENALTIES: Record<number, number> = { 1: 1, 2: 2, 3: 3 };
+const HINT_PENALTIES: Record<number, number> = { 1: 5, 2: 10, 3: 20 };
+const HINT_LEVEL_LABELS: Record<number, string> = {
+  1: "Light",
+  2: "Medium",
+  3: "Strong"
+};
 
 export default function Quiz() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [params] = useSearchParams();
+  const [attemptId, setAttemptId] = useState<string>(() => {
+    const state = location.state as { attemptId?: string } | null;
+    return state?.attemptId ?? crypto.randomUUID();
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quiz, setQuiz] = useState<QuizGenerateResponse | null>(null);
@@ -42,6 +65,7 @@ export default function Quiz() {
   const [results, setResults] = useState<Record<string, PracticeResult>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showQuit, setShowQuit] = useState(false);
+  const [showHintDrawer, setShowHintDrawer] = useState(false);
   const [hintLevel, setHintLevel] = useState(1);
   const [hintByQuestionId, setHintByQuestionId] = useState<Record<string, string>>({});
   const [hintLoadingByQuestionId, setHintLoadingByQuestionId] = useState<Record<string, boolean>>({});
@@ -132,6 +156,7 @@ export default function Quiz() {
               usedHintsCount?: number;
               penaltyTotal?: number;
               hintsUsedByQuestion?: Record<string, number>;
+              attemptId?: string;
             };
             if (parsed?.quiz?.questions?.length) {
               if (active) {
@@ -146,6 +171,9 @@ export default function Quiz() {
                 setUsedHintsCount(parsed.usedHintsCount || 0);
                 setPenaltyTotal(parsed.penaltyTotal || 0);
                 setHintsUsedByQuestion(parsed.hintsUsedByQuestion || {});
+                if (parsed.attemptId && parsed.attemptId !== attemptId) {
+                  setAttemptId(parsed.attemptId);
+                }
                 setLoading(false);
               }
               return;
@@ -196,10 +224,11 @@ export default function Quiz() {
         hintErrorByQuestionId,
         usedHintsCount,
         penaltyTotal,
-        hintsUsedByQuestion
+        hintsUsedByQuestion,
+        attemptId
       })
     );
-  }, [answers, currentIndex, hintByQuestionId, hintErrorByQuestionId, hintLoadingByQuestionId, hintsUsedByQuestion, penaltyTotal, quiz, results, storageKey, submitted, usedHintsCount]);
+  }, [answers, attemptId, currentIndex, hintByQuestionId, hintErrorByQuestionId, hintLoadingByQuestionId, hintsUsedByQuestion, penaltyTotal, quiz, results, storageKey, submitted, usedHintsCount]);
 
   if (!settings) {
     return null;
@@ -207,29 +236,41 @@ export default function Quiz() {
 
   if (loading) {
     return (
-      <Card className="mx-auto max-w-3xl space-y-4">
-        <div className="flex items-center gap-3">
-          <Spinner />
-          <p className="text-sm text-slate-300">Preparing your quiz...</p>
-        </div>
-        <div className="space-y-3">
-          <div className="h-4 w-1/2 rounded bg-white/10" />
-          <div className="h-10 w-full rounded-xl bg-white/10" />
-          <div className="h-24 w-full rounded-xl bg-white/10" />
-        </div>
-      </Card>
+      <div className="mx-auto max-w-3xl">
+        <Card className="space-y-6" variant="elevated">
+          <div className="flex items-center gap-3">
+            <Spinner />
+            <div>
+              <p className="font-medium text-white">Preparing your quiz</p>
+              <p className="text-sm text-slate-400">Loading questions...</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="h-4 w-1/2 animate-pulse rounded bg-white/10" />
+            <div className="h-24 w-full animate-pulse rounded-xl bg-white/10" />
+            <div className="h-12 w-full animate-pulse rounded-xl bg-white/10" />
+          </div>
+        </Card>
+      </div>
     );
   }
 
   if (error || !quiz) {
     return (
-      <Card className="mx-auto max-w-3xl space-y-4">
-        <Alert>{error ?? "Quiz could not be loaded."}</Alert>
-        <Button variant="secondary" onClick={() => navigate("/")}
-        >
-          Back to home
-        </Button>
-      </Card>
+      <div className="mx-auto max-w-3xl">
+        <Card className="space-y-6" variant="elevated">
+          <div className="flex items-center gap-3 text-rose-400">
+            <AlertTriangle size={24} />
+            <div>
+              <p className="font-medium text-white">Failed to load quiz</p>
+              <p className="text-sm text-slate-400">{error ?? "Unknown error"}</p>
+            </div>
+          </div>
+          <Button variant="secondary" onClick={() => navigate("/")}>
+            Back to home
+          </Button>
+        </Card>
+      </div>
     );
   }
 
@@ -285,6 +326,7 @@ export default function Quiz() {
     const payload = {
       settings,
       quiz_id: quiz.quiz_id,
+      attempt_id: attemptId,
       questions,
       answers,
       mode: settings.mode,
@@ -352,37 +394,88 @@ export default function Quiz() {
   };
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
-      <Card className="sticky top-20 z-10 space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400">Question</p>
-            <h2 className="text-lg font-semibold text-white">
-              {currentIndex + 1} of {questions.length}
-            </h2>
+    <div className="mx-auto max-w-3xl space-y-6">
+      {/* Progress header */}
+      <Card
+        variant="elevated"
+        padding="md"
+        className="sticky top-16 z-20 backdrop-blur-xl"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300">
+              <ListChecks size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">
+                Question {currentIndex + 1} of {questions.length}
+              </p>
+              <p className="text-xs text-slate-400">
+                {isPractice ? "Practice mode" : "Exam mode"}
+              </p>
+            </div>
           </div>
-          <Button variant="ghost" onClick={() => setShowQuit(true)}>
-            Quit
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowHintDrawer(true)}
+              disabled={isSubmitted}
+            >
+              <Lightbulb size={16} />
+              <span className="hidden sm:inline">Hint</span>
+              {usedHintsCount > 0 && (
+                <span className="ml-1 rounded-full bg-amber-500/20 px-1.5 text-xs text-amber-300">
+                  {usedHintsCount}/{MAX_HINTS}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowQuit(true)}
+            >
+              <LogOut size={16} />
+              <span className="hidden sm:inline">Quit</span>
+            </Button>
+          </div>
         </div>
-        <Progress value={progress} />
+        <Progress value={progress} className="mt-4" />
       </Card>
 
-      <Card className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-          <span className="uppercase tracking-wide">{question.type}</span>
-          <div className="flex flex-wrap gap-2">
-            <Badge tone="neutral">{topicLabels[question.topic]}</Badge>
-            <Badge tone="neutral">{difficultyLabels[question.difficulty]}</Badge>
-          </div>
+      {/* Question card */}
+      <Card variant="elevated" className="space-y-6">
+        {/* Question header with badges */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={question.type === "mcq" ? "info" : "primary"}>
+            {question.type === "mcq" ? (
+              <>
+                <HelpCircle size={12} />
+                MCQ
+              </>
+            ) : (
+              <>
+                <Code2 size={12} />
+                Code Output
+              </>
+            )}
+          </Badge>
+          <Badge tone="neutral">{topicLabels[question.topic]}</Badge>
+          <Badge tone="neutral">{difficultyLabels[question.difficulty]}</Badge>
         </div>
 
+        {/* Question content */}
         <div className="space-y-4 text-slate-100">
-          {before ? <p className="whitespace-pre-wrap leading-relaxed">{before}</p> : null}
+          {before ? (
+            <p className="whitespace-pre-wrap leading-relaxed">{before}</p>
+          ) : null}
           {code ? <CodeBlock code={code} language={language} /> : null}
-          {after ? <p className="whitespace-pre-wrap leading-relaxed">{after}</p> : null}
+          {after ? (
+            <p className="whitespace-pre-wrap leading-relaxed">{after}</p>
+          ) : null}
         </div>
 
+        {/* Answer options */}
         <div className="space-y-3">
           {question.type === "mcq" && question.choices ? (
             <div className="grid gap-3">
@@ -394,22 +487,19 @@ export default function Quiz() {
                 const isIncorrectChoice = showCorrect && active && correctAnswer !== key;
 
                 return (
-                  <button
+                  <OptionCard
                     key={key}
-                    type="button"
+                    value={key}
+                    label={value}
+                    prefix={key}
+                    selected={active}
+                    correct={Boolean(isCorrectChoice)}
+                    incorrect={Boolean(isIncorrectChoice)}
                     disabled={isSubmitted}
-                    onClick={() => setAnswers((prev) => ({ ...prev, [question.id]: key }))}
-                    className={cn(
-                      "flex w-full items-start gap-3 rounded-2xl border px-4 py-4 text-left text-sm transition",
-                      active ? "border-indigo-400/60 bg-indigo-400/10 text-white" : "border-white/10 text-slate-200",
-                      isCorrectChoice && "border-emerald-400/60 bg-emerald-400/10 text-emerald-100",
-                      isIncorrectChoice && "border-rose-400/60 bg-rose-400/10 text-rose-100",
-                      isSubmitted && "cursor-not-allowed opacity-70"
-                    )}
-                  >
-                    <span className="text-xs font-semibold">{key}</span>
-                    <span>{value}</span>
-                  </button>
+                    onClick={() =>
+                      setAnswers((prev) => ({ ...prev, [question.id]: key }))
+                    }
+                  />
                 );
               })}
             </div>
@@ -417,108 +507,179 @@ export default function Quiz() {
             <textarea
               value={currentAnswer}
               onChange={(event) =>
-                setAnswers((prev) => ({ ...prev, [question.id]: event.target.value }))
+                setAnswers((prev) => ({
+                  ...prev,
+                  [question.id]: event.target.value
+                }))
               }
-              placeholder="Type the expected output"
+              placeholder="Type the expected output..."
               rows={5}
               readOnly={isSubmitted}
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/60 p-4 font-mono text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
+              className={cn(
+                "w-full rounded-2xl border bg-slate-950/60 p-4 font-mono text-sm text-slate-100 transition placeholder:text-slate-500",
+                "focus:outline-none focus:ring-2 focus:ring-indigo-400/40",
+                isSubmitted
+                  ? "cursor-not-allowed border-white/5 opacity-70"
+                  : "border-white/10 hover:border-white/20"
+              )}
             />
           )}
         </div>
 
-        {isSubmitted ? (
-          <Card className="space-y-3 border-white/10 bg-white/5">
-            {isPractice ? (
-              <div className="flex items-center gap-3">
-                <Badge tone={result?.correct ? "success" : "error"}>
-                  {result?.correct ? "Correct" : "Incorrect"}
-                </Badge>
-                <span className="text-sm text-slate-300">
-                  Correct answer: {result?.correctAnswer || "—"}
-                </span>
-              </div>
-            ) : (
-              <Badge tone="neutral">Answer submitted</Badge>
+        {/* Result feedback (practice mode) */}
+        {isSubmitted && isPractice && result ? (
+          <Card
+            variant="subtle"
+            padding="md"
+            className={cn(
+              "border-l-4",
+              result.correct
+                ? "border-l-emerald-400 bg-emerald-400/5"
+                : "border-l-rose-400 bg-rose-400/5"
             )}
-
-            {isPractice && result?.explanation ? (
-              <details className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
-                <summary className="cursor-pointer font-semibold text-slate-100">
-                  Explanation
+          >
+            <div className="flex items-center gap-3">
+              <Badge tone={result.correct ? "success" : "error"}>
+                {result.correct ? "Correct!" : "Incorrect"}
+              </Badge>
+              {!result.correct && (
+                <span className="text-sm text-slate-300">
+                  Answer: <span className="font-mono">{result.correctAnswer}</span>
+                </span>
+              )}
+            </div>
+            {result.explanation ? (
+              <details className="mt-4">
+                <summary className="cursor-pointer text-sm font-medium text-slate-300 hover:text-white">
+                  View explanation
                 </summary>
-                <p className="mt-2 text-slate-300">{result.explanation}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                  {result.explanation}
+                </p>
               </details>
             ) : null}
           </Card>
         ) : null}
 
-        <Card className="space-y-4 border-white/10 bg-white/5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-100">AI Hint</p>
-              <p className="text-xs text-slate-400">Select a hint level and generate guidance.</p>
-            </div>
-            <div className="flex items-center gap-2">
+        {/* Exam mode submitted state */}
+        {isSubmitted && !isPractice ? (
+          <Card variant="subtle" padding="md">
+            <Badge tone="neutral">Answer submitted</Badge>
+          </Card>
+        ) : null}
+
+        {/* Action buttons */}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {!isSubmitted ? (
+            <Button onClick={handleSubmit} disabled={!currentAnswer.trim()}>
+              <Send size={16} />
+              Submit Answer
+            </Button>
+          ) : (
+            <Button onClick={handleNext}>
+              {currentIndex === questions.length - 1 ? "Finish Quiz" : "Next Question"}
+              <ChevronRight size={16} />
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      {/* AI Hint Drawer */}
+      <Drawer
+        open={showHintDrawer}
+        onClose={() => setShowHintDrawer(false)}
+        title="AI Hint"
+        description="Get intelligent guidance without revealing the answer."
+      >
+        <div className="space-y-6">
+          {/* Hint level selector */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-slate-300">Hint Level</p>
+            <div className="grid grid-cols-3 gap-2">
               {[1, 2, 3].map((level) => (
                 <button
                   key={level}
                   type="button"
                   onClick={() => setHintLevel(level)}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    "rounded-xl py-3 text-sm font-medium transition",
                     hintLevel === level
-                      ? "border-indigo-400/60 bg-indigo-400/20 text-indigo-100"
-                      : "border-white/10 text-slate-300 hover:border-white/30"
+                      ? "bg-indigo-500/20 text-indigo-200 ring-2 ring-indigo-500/40"
+                      : "bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-300"
                   )}
                 >
-                  {level}
+                  {HINT_LEVEL_LABELS[level]}
                 </button>
               ))}
             </div>
+            <p className="text-xs text-slate-500">
+              {hintLevel === 1 && "Gentle nudge in the right direction"}
+              {hintLevel === 2 && "More specific guidance"}
+              {hintLevel === 3 && "Detailed explanation (higher penalty)"}
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={handleHint} disabled={Boolean(hintLoading)}>
-              {hintLoading ? "Generating hint..." : "Get Hint"}
-            </Button>
-            <div className="text-xs text-slate-400">
-              Hints: {usedHintsCount}/{MAX_HINTS}
+          {/* Stats */}
+          <div className="flex items-center gap-6 rounded-xl bg-white/[0.03] p-4">
+            <div>
+              <p className="text-xs text-slate-400">Hints used</p>
+              <p className="text-lg font-semibold text-white">
+                {usedHintsCount}
+                <span className="text-sm text-slate-500">/{MAX_HINTS}</span>
+              </p>
             </div>
-            <div className="text-xs text-slate-400">
-              Penalty: -{penaltyTotal}
+            <div className="h-8 w-px bg-white/10" />
+            <div>
+              <p className="text-xs text-slate-400">Current penalty</p>
+              <p className="text-lg font-semibold text-amber-400">
+                {penaltyTotal > 0 ? '-' : ''}{penaltyTotal}%
+              </p>
             </div>
+          </div>
+
+          {/* Get hint button */}
+          <Button
+            onClick={handleHint}
+            disabled={hintLoading || usedHintsCount >= MAX_HINTS || Boolean(hint)}
+            className="w-full"
+          >
             {hintLoading ? (
-              <div className="flex items-center gap-2 text-xs text-slate-300">
-                <Spinner />
+              <>
+                <Spinner className="h-4 w-4" />
                 Generating hint...
-              </div>
-            ) : null}
-          </div>
+              </>
+            ) : hint ? (
+              "Hint received"
+            ) : usedHintsCount >= MAX_HINTS ? (
+              "No hints remaining"
+            ) : (
+              <>
+                <Sparkles size={16} />
+                Get {HINT_LEVEL_LABELS[hintLevel]} Hint (-{HINT_PENALTIES[hintLevel]}%)
+              </>
+            )}
+          </Button>
 
+          {/* Error */}
           {hintError ? <Alert>{hintError}</Alert> : null}
 
+          {/* Hint response */}
           {hint ? (
-            <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-200">
-              <p className="whitespace-pre-wrap leading-relaxed">{hint}</p>
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                AI Response
+              </p>
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">
+                  {hint}
+                </p>
+              </div>
             </div>
           ) : null}
-        </Card>
-
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          {!isSubmitted ? (
-            <Button onClick={handleSubmit} disabled={!currentAnswer.trim()}>
-              Submit Answer
-            </Button>
-          ) : (
-            <Button onClick={handleNext}>
-              {currentIndex === questions.length - 1 ? "Finish Quiz" : "Next Question"}
-            </Button>
-          )}
-          <Button variant="secondary" onClick={() => navigate("/")}>Back to setup</Button>
         </div>
-      </Card>
+      </Drawer>
 
+      {/* Quit confirmation modal */}
       <Modal
         open={showQuit}
         title="Quit quiz?"
@@ -527,7 +688,7 @@ export default function Quiz() {
         onConfirm={handleQuit}
         onClose={() => setShowQuit(false)}
       />
-    </section>
+    </div>
   );
 }
 

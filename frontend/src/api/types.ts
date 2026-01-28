@@ -54,6 +54,9 @@ export type AttemptCreate = {
   correct_count: number;
   total_count: number;
   answers: AttemptAnswer[];
+  meta?: {
+    topics?: Topic[];
+  };
 };
 
 export type AttemptOut = AttemptCreate & {

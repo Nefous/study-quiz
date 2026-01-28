@@ -1,6 +1,9 @@
 import type { ApiError } from "./types";
 
-const baseURL = import.meta.env.VITE_API_URL || "/api";
+const ORIGIN = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
+
+export const apiUrl = (path: string) =>
+  `${ORIGIN}${path.startsWith("/") ? path : `/${path}`}`;
 
 async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -15,10 +18,10 @@ async function parseJson<T>(response: Response): Promise<T> {
 }
 
 export async function request<T>(
-  path: string,
+  url: string,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(`${baseURL}${path}`, {
+  const response = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
       ...(options?.headers || {})
@@ -40,10 +43,13 @@ export async function getHint(
   payload: { user_answer?: string; level: number }
 ): Promise<{ hint: string }> {
   try {
-    return await request<{ hint: string }>(`/questions/${questionId}/hint`, {
+    return await request<{ hint: string }>(
+      apiUrl(`/questions/${questionId}/hint`),
+      {
       method: "POST",
       body: JSON.stringify(payload)
-    });
+      }
+    );
   } catch (error) {
     const apiError = error as ApiError;
     if (apiError?.status === 503) {

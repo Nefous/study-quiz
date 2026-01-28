@@ -1,17 +1,47 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Code2, LineChart, Sparkles } from "lucide-react";
+import {
+  Binary,
+  BookOpen,
+  Code2,
+  GitBranch,
+  Lightbulb,
+  Play,
+  Shuffle,
+  TrendingUp
+} from "lucide-react";
 import { getMeta, topicLabels, difficultyLabels, modeLabels } from "../api";
-import type { Difficulty, MetaResponse, QuizMode, Topic } from "../api/types";
-import Alert from "../components/ui/Alert";
+import type { ApiError, Difficulty, MetaResponse, QuizMode, Topic } from "../api/types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
-import ChoiceChips from "../components/ui/ChoiceChips";
+import PageHeader from "../components/ui/PageHeader";
 import Segmented from "../components/ui/Segmented";
+import TopicCard from "../components/ui/TopicCard";
+import { cn } from "../components/ui/cn";
 
 const STORAGE_KEY = "quizSetup";
 const FALLBACK_DEFAULT_SIZE = 10;
-const FALLBACK_MAX_SIZE = 20;
+const FALLBACK_MAX_SIZE = 50;
+const FALLBACK_TOPICS: Topic[] = [
+  "python_core",
+  "big_o",
+  "algorithms",
+  "data_structures"
+];
+
+const TOPIC_ICONS: Record<string, typeof Code2> = {
+  python_core: Code2,
+  big_o: TrendingUp,
+  algorithms: GitBranch,
+  data_structures: Binary
+};
+
+const TOPIC_DESCRIPTIONS: Record<string, string> = {
+  python_core: "Syntax, data types, and Python idioms",
+  big_o: "Time & space complexity analysis",
+  algorithms: "Sorting, searching, and patterns",
+  data_structures: "Lists, stacks, queues, and trees"
+};
 
 export default function Home() {
   const navigate = useNavigate();
@@ -23,7 +53,7 @@ export default function Home() {
   const [maxSize, setMaxSize] = useState<number>(FALLBACK_MAX_SIZE);
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [metaSource, setMetaSource] = useState<"api" | "fallback" | null>(null);
 
   const canSubmit = useMemo(() => {
     if (!difficulty || !mode || size <= 0) return false;
@@ -32,6 +62,7 @@ export default function Home() {
   }, [difficulty, mode, randomMix, selectedTopics.length, size]);
 
   const startQuiz = () => {
+    const attemptId = crypto.randomUUID();
     const params = new URLSearchParams({
       difficulty,
       mode,
@@ -43,7 +74,11 @@ export default function Home() {
     } else {
       params.set("topics", selectedTopics.join(","));
     }
-    navigate(`/quiz?${params.toString()}`);
+    navigate(`/quiz?${params.toString()}`, {
+      state: {
+        attemptId
+      }
+    });
   };
 
   useEffect(() => {
@@ -59,10 +94,29 @@ export default function Home() {
           if (!hadCache) {
             setSize(response.defaultQuizSize || FALLBACK_DEFAULT_SIZE);
           }
+          setMetaSource("api");
         }
       } catch (err) {
         if (active) {
-          setError(err instanceof Error ? err.message : "Failed to load defaults");
+          const apiError = err as ApiError;
+          const status = apiError?.status;
+          const isDev = import.meta.env.DEV;
+          console.warn("meta fetch failed", status, err);
+          setMeta({
+            topics: FALLBACK_TOPICS,
+            difficulties: ["junior", "middle"],
+            modes: ["practice", "exam"],
+            defaultQuizSize: FALLBACK_DEFAULT_SIZE,
+            maxQuestionsPerQuiz: FALLBACK_MAX_SIZE
+          });
+          setMaxSize(FALLBACK_MAX_SIZE);
+          if (!hadCache) {
+            setSize(FALLBACK_DEFAULT_SIZE);
+          }
+          if (isDev && status) {
+            console.warn("meta fetch status", status);
+          }
+          setMetaSource("fallback");
         }
       } finally {
         if (active) {
@@ -117,78 +171,38 @@ export default function Home() {
     }
   }, [size]);
 
-  const topicOptions = (meta?.topics || Object.keys(topicLabels)) as Topic[];
+  const topicOptions = (meta?.topics || FALLBACK_TOPICS) as Topic[];
   const selectableTopics = topicOptions.filter((value) => value !== "random");
   const difficultyOptions = (meta?.difficulties || Object.keys(difficultyLabels)) as Difficulty[];
   const modeOptions = (meta?.modes || Object.keys(modeLabels)) as QuizMode[];
 
   return (
-    <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-      <div className="space-y-6">
-        <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.3em] text-indigo-200">Python Interview Prep</p>
-          <h1 className="text-4xl font-semibold text-white sm:text-5xl">
-            Build confidence with focused interview practice.
-          </h1>
-          <p className="text-sm text-slate-300">
-            Curated questions across core Python, algorithms, and data structures.
-          </p>
-        </div>
+    <div className="space-y-8">
+      {/* Header */}
+      <PageHeader
+        badge="Python Interview Prep"
+        title="Master your next interview"
+        description="Practice with realistic questions across core Python, algorithms, and data structures."
+      />
 
-        <div className="grid gap-3 text-sm text-slate-200">
-          <div className="flex items-center gap-3">
-            <BookOpen size={18} className="text-indigo-300" />
-            <span>Realistic questions (MCQ + Code output)</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Sparkles size={18} className="text-indigo-300" />
-            <span>Practice or Exam mode</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <LineChart size={18} className="text-indigo-300" />
-            <span>Junior → Middle progression</span>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-            <p className="text-xs text-slate-400">Topics</p>
-            <p className="text-lg font-semibold text-white">{topicOptions.length}</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-            <p className="text-xs text-slate-400">Modes</p>
-            <p className="text-lg font-semibold text-white">{modeOptions.length}</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-            <p className="text-xs text-slate-400">Questions</p>
-            <p className="text-lg font-semibold text-white">20+</p>
-          </div>
-        </div>
-      </div>
-
-      <Card className="space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Quiz setup</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Choose what you want to practice today.
-          </p>
-        </div>
-
-        {loading ? (
-          <div className="space-y-3">
-            <div className="h-4 w-1/3 rounded bg-white/10" />
-            <div className="h-20 w-full rounded-2xl bg-white/10" />
-            <div className="h-4 w-1/2 rounded bg-white/10" />
-            <div className="h-12 w-full rounded-2xl bg-white/10" />
-          </div>
-        ) : null}
-
-        {error ? <Alert>{error}</Alert> : null}
-
-        <div className="space-y-5">
-          <div className="space-y-2">
-            <span className="text-sm font-medium text-slate-200">Topics</span>
-            <div className="space-y-3">
+      {/* Main content grid */}
+      <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+        {/* Left column - Topic selection */}
+        <div className="space-y-6">
+          {/* Random Mix toggle */}
+          <Card className="space-y-4" variant="elevated">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 text-purple-300">
+                  <Shuffle size={20} />
+                </div>
+                <div>
+                  <p className="font-semibold text-white">Random Mix</p>
+                  <p className="text-xs text-slate-400">
+                    Mix questions from all topics
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -197,133 +211,233 @@ export default function Home() {
                     setSelectedTopics([]);
                   }
                 }}
-                className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                className={cn(
+                  "relative h-7 w-12 rounded-full transition-all",
                   randomMix
-                    ? "border-indigo-400/60 bg-indigo-400/10 text-white"
-                    : "border-white/10 text-slate-200 hover:border-white/30"
-                }`}
+                    ? "bg-indigo-500 shadow-lg shadow-indigo-500/30"
+                    : "bg-white/10"
+                )}
               >
-                <div>
-                  <p className="font-semibold">Random Mix</p>
-                  <p className="text-xs text-slate-400">Mix questions from all topics.</p>
-                </div>
-                <span className="text-xs font-semibold">{randomMix ? "On" : "Off"}</span>
+                <span
+                  className={cn(
+                    "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all",
+                    randomMix ? "left-6" : "left-1"
+                  )}
+                />
               </button>
+            </div>
+          </Card>
 
-              <div className="grid gap-2">
-                {selectableTopics.map((value) => {
-                  const checked = selectedTopics.includes(value);
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      disabled={randomMix}
-                      onClick={() => {
-                        setSelectedTopics((prev) =>
-                          checked
-                            ? prev.filter((item) => item !== value)
-                            : [...prev, value]
-                        );
-                      }}
-                      className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition ${
+          {/* Topic cards */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-slate-300">
+              {randomMix ? "Topics (disabled)" : "Select topics"}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {selectableTopics.map((topic) => {
+                const Icon = TOPIC_ICONS[topic] || BookOpen;
+                const checked = selectedTopics.includes(topic);
+                return (
+                  <TopicCard
+                    key={topic}
+                    label={topicLabels[topic] ?? topic}
+                    description={TOPIC_DESCRIPTIONS[topic]}
+                    icon={<Icon size={20} />}
+                    selected={checked}
+                    disabled={randomMix}
+                    onClick={() => {
+                      setSelectedTopics((prev) =>
                         checked
-                          ? "border-indigo-400/60 bg-indigo-400/10 text-white"
-                          : "border-white/10 text-slate-200 hover:border-white/30"
-                      } ${randomMix ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20">
-                        {checked ? "✓" : ""}
-                      </div>
-                      <div>
-                        <p className="font-semibold">{topicLabels[value] ?? value}</p>
-                        <p className="text-xs text-slate-400">
-                          {value === "python_core"
-                            ? "Syntax, data types, and idioms"
-                            : value === "big_o"
-                              ? "Complexity and trade-offs"
-                              : value === "algorithms"
-                                ? "Sorting, searching, patterns"
-                                : "Lists, stacks, queues, trees"}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
+                          ? prev.filter((item) => item !== topic)
+                          : [...prev, topic]
+                      );
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Features */}
+          <Card variant="subtle" className="space-y-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              What's included
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex items-center gap-3">
+                <BookOpen size={16} className="text-indigo-400" />
+                <span className="text-sm text-slate-300">MCQ & Code output questions</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Lightbulb size={16} className="text-indigo-400" />
+                <span className="text-sm text-slate-300">AI-powered hints</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <TrendingUp size={16} className="text-indigo-400" />
+                <span className="text-sm text-slate-300">Progress tracking</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Code2 size={16} className="text-indigo-400" />
+                <span className="text-sm text-slate-300">Detailed explanations</span>
               </div>
             </div>
-          </div>
+          </Card>
+        </div>
 
-          <div className="space-y-2">
-            <span className="text-sm font-medium text-slate-200">Difficulty</span>
-            <Segmented
-              value={difficulty}
-              onChange={(value) => setDifficulty(value as Difficulty)}
-              options={difficultyOptions.map((value) => ({
-                label: difficultyLabels[value] ?? value,
-                value
-              }))}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-sm font-medium text-slate-200">Mode</span>
-            <Segmented
-              value={mode}
-              onChange={(value) => setMode(value as QuizMode)}
-              options={modeOptions.map((value) => ({
-                label: modeLabels[value] ?? value,
-                value,
-                helper:
-                  value === "practice"
-                    ? "Immediate feedback + explanations."
-                    : "No answers shown during the quiz."
-              }))}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-sm text-slate-200">
-              <span className="font-medium">Number of questions</span>
-              <span className="text-xs text-slate-400">Max {maxSize}</span>
+        {/* Right column - Quiz settings */}
+        <div className="space-y-6">
+          <Card className="space-y-6" variant="elevated">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Quiz Settings</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Configure your practice session
+                </p>
+              </div>
+              <span
+                title={metaSource === "fallback" ? "Offline mode" : undefined}
+                className={cn(
+                  "mt-1 inline-flex h-2.5 w-2.5 rounded-full",
+                  metaSource === "api" && "bg-emerald-400/80",
+                  metaSource === "fallback" && "bg-slate-500/70",
+                  metaSource === null && "bg-slate-700/70"
+                )}
+              />
             </div>
-            <ChoiceChips
-              value={size}
-              onChange={setSize}
-              options={[
-                { label: "5", value: 5 },
-                { label: "10", value: 10 },
-                { label: "15", value: 15 }
-              ]}
-            />
-            <p className="text-xs text-slate-400">Questions per quiz</p>
-          </div>
-        </div>
 
-        <div className="space-y-3">
-          <Button
-            type="button"
-            onClick={startQuiz}
-            disabled={!canSubmit}
-            size="lg"
-            className="w-full"
-          >
-            Start Quiz
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => navigate("/history")}
-            className="w-full"
-          >
-            History
-          </Button>
-          {!canSubmit ? (
-            <p className="text-xs text-rose-200">
-              Select at least one topic (or enable Random Mix), difficulty, mode, and size.
+            {loading ? (
+              <div className="space-y-4">
+                <div className="h-4 w-1/3 animate-pulse rounded bg-white/10" />
+                <div className="h-12 w-full animate-pulse rounded-xl bg-white/10" />
+                <div className="h-4 w-1/2 animate-pulse rounded bg-white/10" />
+                <div className="h-12 w-full animate-pulse rounded-xl bg-white/10" />
+              </div>
+            ) : null}
+
+            <div className="space-y-5">
+              {/* Difficulty */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-300">
+                  Difficulty
+                </label>
+                <Segmented
+                  value={difficulty}
+                  onChange={(value) => setDifficulty(value as Difficulty)}
+                  options={difficultyOptions.map((value) => ({
+                    label: difficultyLabels[value] ?? value,
+                    value
+                  }))}
+                />
+              </div>
+
+              {/* Mode */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-300">
+                  Mode
+                </label>
+                <Segmented
+                  value={mode}
+                  onChange={(value) => setMode(value as QuizMode)}
+                  options={modeOptions.map((value) => ({
+                    label: modeLabels[value] ?? value,
+                    value,
+                    helper:
+                      value === "practice"
+                        ? "See answers after each question"
+                        : "No feedback until the end"
+                  }))}
+                />
+              </div>
+
+              {/* Question count */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-slate-300">
+                    Questions
+                  </label>
+                  <span className="text-xs text-slate-500">Max {maxSize}</span>
+                </div>
+                <div className="flex gap-2">
+                  {[5, 10, 15].map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => setSize(count)}
+                      className={cn(
+                        "flex-1 rounded-xl py-3 text-sm font-semibold transition-all",
+                        size === count
+                          ? "bg-indigo-500/20 text-indigo-200 ring-2 ring-indigo-500/40"
+                          : "bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-300"
+                      )}
+                    >
+                      {count}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3 pt-2">
+              <Button
+                type="button"
+                onClick={startQuiz}
+                disabled={!canSubmit}
+                size="lg"
+                className="w-full"
+              >
+                <Play size={18} />
+                Start Quiz
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => navigate("/history")}
+                className="w-full"
+              >
+                View History
+              </Button>
+              {!canSubmit ? (
+                <p className="text-center text-xs text-rose-300/80">
+                  Select at least one topic (or enable Random Mix)
+                </p>
+              ) : null}
+            </div>
+          </Card>
+
+          {/* Quick stats preview */}
+          <Card variant="subtle" className="space-y-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Selection summary
             </p>
-          ) : null}
+            <div className="flex flex-wrap gap-2">
+              {randomMix ? (
+                <span className="rounded-full bg-purple-500/15 px-3 py-1 text-xs font-medium text-purple-300">
+                  Random Mix
+                </span>
+              ) : selectedTopics.length > 0 ? (
+                selectedTopics.map((topic) => (
+                  <span
+                    key={topic}
+                    className="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-medium text-indigo-300"
+                  >
+                    {topicLabels[topic]}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-500">No topics selected</span>
+              )}
+            </div>
+            <div className="flex items-center gap-4 text-xs text-slate-400">
+              <span>{difficultyLabels[difficulty]} level</span>
+              <span>•</span>
+              <span>{modeLabels[mode]} mode</span>
+              <span>•</span>
+              <span>{size} questions</span>
+            </div>
+          </Card>
         </div>
-      </Card>
-    </section>
+      </div>
+    </div>
   );
 }
