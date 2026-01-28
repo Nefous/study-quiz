@@ -18,6 +18,7 @@ class AttemptCreate(BaseModel):
     correct_count: int
     total_count: int
     answers: list[AttemptAnswer]
+    meta: dict | None = None
 
 
 class AttemptOut(BaseModel):
@@ -29,6 +30,7 @@ class AttemptOut(BaseModel):
     correct_count: int
     total_count: int
     answers: list[AttemptAnswer]
+    meta: dict | None = None
     created_at: datetime
     score_percent: int
 

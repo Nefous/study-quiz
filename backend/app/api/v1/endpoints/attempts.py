@@ -18,6 +18,7 @@ def _to_out(attempt) -> AttemptOut:
         correct_count=attempt.correct_count,
         total_count=attempt.total_count,
         answers=attempt.answers,
+        meta=getattr(attempt, "meta", None),
         created_at=attempt.created_at,
         score_percent=attempt.score_percent,
     )

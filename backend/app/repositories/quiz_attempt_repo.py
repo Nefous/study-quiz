@@ -34,25 +34,44 @@ class QuizAttemptRepository:
         totals_result = await self.session.execute(totals_stmt)
         total_attempts, avg_score, best_score, last_attempt_at = totals_result.one()
 
-        by_topic_stmt = (
-            select(
-                QuizAttempt.topic,
-                func.count(QuizAttempt.id),
-                func.avg(QuizAttempt.score_percent),
-            )
-            .group_by(QuizAttempt.topic)
-            .order_by(func.count(QuizAttempt.id).desc())
-        )
-        by_topic_result = await self.session.execute(by_topic_stmt)
+        attempts_stmt = select(QuizAttempt.topic, QuizAttempt.score_percent, QuizAttempt.meta)
+        attempts_result = await self.session.execute(attempts_stmt)
+        bucket: dict[str, dict[str, int]] = {}
+        for topic, score_percent, meta in attempts_result.all():
+            meta_topics = []
+            if topic == "mix" and isinstance(meta, dict):
+                meta_topics = meta.get("topics") or []
+
+            if topic == "mix" and meta_topics:
+                for item in meta_topics:
+                    if not item or item == "random":
+                        continue
+                    bucket.setdefault(item, {"attempts": 0, "score_sum": 0})
+                    bucket[item]["attempts"] += 1
+                    bucket[item]["score_sum"] += int(score_percent or 0)
+                continue
+
+            if not topic or topic == "mix":
+                continue
+
+            bucket.setdefault(topic, {"attempts": 0, "score_sum": 0})
+            bucket[topic]["attempts"] += 1
+            bucket[topic]["score_sum"] += int(score_percent or 0)
+
         by_topic = []
-        for topic, attempts, avg_score_topic in by_topic_result.all():
+        for topic, stats in bucket.items():
+            attempts = stats["attempts"]
+            score_sum = stats["score_sum"]
+            avg_score_topic = int(round(score_sum / attempts)) if attempts else 0
             by_topic.append(
                 {
                     "topic": topic,
-                    "attempts": int(attempts or 0),
-                    "avg_score_percent": int(round(avg_score_topic or 0)),
+                    "attempts": attempts,
+                    "avg_score_percent": avg_score_topic,
                 }
             )
+
+        by_topic.sort(key=lambda item: item["attempts"], reverse=True)
 
         return {
             "total_attempts": int(total_attempts or 0),
