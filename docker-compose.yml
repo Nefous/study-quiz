@@ -22,6 +22,9 @@ services:
     build: ./backend
     env_file:
     - ./.env
+    secrets:
+      - jwt_private
+      - jwt_public
     depends_on:
       db:
         condition: service_healthy
@@ -41,3 +44,9 @@ services:
 
 volumes:
   db_data:
+
+secrets:
+  jwt_private:
+    file: ./jwt_private.pem
+  jwt_public:
+    file: ./jwt_public.pem

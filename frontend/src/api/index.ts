@@ -8,7 +8,10 @@ import type {
   QuizMode,
   AttemptCreate,
   AttemptOut,
-  AttemptStats
+  AttemptStats,
+  LoginRequest,
+  TokenResponse,
+  User
 } from "./types";
 import { apiUrl, getHint, request } from "./client";
 
@@ -40,6 +43,36 @@ export async function listAttempts(limit = 20, offset = 0): Promise<AttemptOut[]
 
 export async function getAttemptStats(): Promise<AttemptStats> {
   return request<AttemptStats>(apiUrl("/attempts/stats"));
+}
+
+export async function login(payload: LoginRequest): Promise<TokenResponse> {
+  return request<TokenResponse>(apiUrl("/auth/login"), {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function register(payload: LoginRequest): Promise<TokenResponse> {
+  return request<TokenResponse>(apiUrl("/auth/register"), {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function refresh(): Promise<TokenResponse> {
+  return request<TokenResponse>(apiUrl("/auth/refresh"), {
+    method: "POST"
+  });
+}
+
+export async function logout(): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(apiUrl("/auth/logout"), {
+    method: "POST"
+  });
+}
+
+export async function me(): Promise<User> {
+  return request<User>(apiUrl("/auth/me"));
 }
 
 export { getHint };

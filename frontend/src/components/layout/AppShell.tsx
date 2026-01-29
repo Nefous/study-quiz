@@ -1,9 +1,11 @@
 import type { PropsWithChildren } from "react";
-import { Link, NavLink } from "react-router-dom";
-import { Github, History, Home } from "lucide-react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Github, History, Home, UserCircle } from "lucide-react";
 import Background from "./Background";
 import { cn } from "../ui/cn";
 import BrandLogo from "../BrandLogo";
+import Button from "../ui/Button";
+import { useAuth } from "../../context/AuthContext";
 
 const navLinks = [
   { to: "/", label: "Home", icon: Home },
@@ -11,6 +13,8 @@ const navLinks = [
 ];
 
 export default function AppShell({ children }: PropsWithChildren) {
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen text-slate-100">
       <Background />
@@ -48,6 +52,32 @@ export default function AppShell({ children }: PropsWithChildren) {
                 <span className="hidden sm:inline">{label}</span>
               </NavLink>
             ))}
+
+            {isAuthenticated ? (
+              <NavLink
+                to="/profile"
+                className={({ isActive }) =>
+                  cn(
+                    "ml-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
+                    isActive
+                      ? "bg-white/10 text-white"
+                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  )
+                }
+              >
+                <UserCircle size={16} />
+                <span className="hidden sm:inline">Profile</span>
+              </NavLink>
+            ) : (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="ml-2"
+                onClick={() => navigate("/login")}
+              >
+                Sign in
+              </Button>
+            )}
 
             {/* GitHub link */}
             <a

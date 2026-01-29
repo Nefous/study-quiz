@@ -18,6 +18,7 @@ import PageHeader from "../components/ui/PageHeader";
 import Segmented from "../components/ui/Segmented";
 import TopicCard from "../components/ui/TopicCard";
 import { cn } from "../components/ui/cn";
+import { useAuth } from "../context/AuthContext";
 
 const STORAGE_KEY = "quizSetup";
 const FALLBACK_DEFAULT_SIZE = 10;
@@ -45,6 +46,7 @@ const TOPIC_DESCRIPTIONS: Record<string, string> = {
 
 export default function Home() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [selectedTopics, setSelectedTopics] = useState<Topic[]>(["python_core"]);
   const [randomMix, setRandomMix] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>("junior");
@@ -62,6 +64,10 @@ export default function Home() {
   }, [difficulty, mode, randomMix, selectedTopics.length, size]);
 
   const startQuiz = () => {
+    if (!isAuthenticated) {
+      navigate("/login?returnUrl=%2F");
+      return;
+    }
     const attemptId = crypto.randomUUID();
     const params = new URLSearchParams({
       difficulty,
@@ -382,13 +388,28 @@ export default function Home() {
               <Button
                 type="button"
                 onClick={startQuiz}
-                disabled={!canSubmit}
+                disabled={!canSubmit || !isAuthenticated}
                 size="lg"
                 className="w-full"
               >
                 <Play size={18} />
                 Start Quiz
               </Button>
+              {!isAuthenticated ? (
+                <div className="space-y-2 text-center">
+                  <p className="text-xs text-slate-400">
+                    Sign in to start a quiz and save progress.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate("/login?returnUrl=%2F")}
+                  >
+                    Sign in
+                  </Button>
+                </div>
+              ) : null}
               <Button
                 type="button"
                 variant="secondary"

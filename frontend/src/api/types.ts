@@ -78,3 +78,19 @@ export type AttemptStats = {
   last_attempt_at: string | null;
   by_topic: AttemptTopicStats[];
 };
+
+export type User = {
+  id: string;
+  email: string;
+  created_at: string;
+};
+
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
+
+export type TokenResponse = {
+  access_token: string;
+  user: User;
+};

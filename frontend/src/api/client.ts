@@ -9,6 +9,17 @@ const normalizeOrigin = (origin: string) =>
 export const apiUrl = (path: string) =>
   `${normalizeOrigin(ORIGIN)}${V1}${path.startsWith("/") ? path : `/${path}`}`;
 
+let accessToken: string | null = null;
+let refreshHandler: (() => Promise<string | null>) | null = null;
+
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+}
+
+export function setRefreshHandler(handler: (() => Promise<string | null>) | null) {
+  refreshHandler = handler;
+}
+
 
 async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -24,15 +35,30 @@ async function parseJson<T>(response: Response): Promise<T> {
 
 export async function request<T>(
   url: string,
-  options?: RequestInit
+  options?: RequestInit,
+  retried = false
 ): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined)
+  };
+
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
   const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.headers || {})
-    },
+    headers,
+    credentials: "include",
     ...options
   });
+
+  if (response.status === 401 && !retried && refreshHandler && !url.includes("/auth/")) {
+    const newToken = await refreshHandler();
+    if (newToken) {
+      return request<T>(url, options, true);
+    }
+  }
 
   if (!response.ok) {
     const body = await response.text();
