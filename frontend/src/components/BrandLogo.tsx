@@ -1,5 +1,5 @@
 import { cn } from "./ui/cn";
-import logo from "../assets/better_logo.svg";
+import logo from "../assets/logo.png";
 
 type BrandLogoProps = {
   size?: "sm" | "md";

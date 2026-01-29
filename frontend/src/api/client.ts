@@ -1,9 +1,14 @@
 import type { ApiError } from "./types";
 
-const ORIGIN = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
+const ORIGIN = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const V1 = "/api/v1";
+
+const normalizeOrigin = (origin: string) =>
+  origin.endsWith(V1) ? origin.slice(0, -V1.length) : origin;
 
 export const apiUrl = (path: string) =>
-  `${ORIGIN}${path.startsWith("/") ? path : `/${path}`}`;
+  `${normalizeOrigin(ORIGIN)}${V1}${path.startsWith("/") ? path : `/${path}`}`;
+
 
 async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
