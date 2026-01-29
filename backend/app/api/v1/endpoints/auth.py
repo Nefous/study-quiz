@@ -48,7 +48,7 @@ async def register(
     repo = UserRepository(session)
     existing = await repo.get_by_email(body.email.lower())
     if existing:
-        raise HTTPException(status_code=409, detail="Email already registered")
+        raise HTTPException(status_code=409, detail="EMAIL_TAKEN")
 
     user = await repo.create(email=body.email.lower(), password_hash=_hash_password(body.password))
     refresh_token = await issue_refresh_token(session, user.id)
@@ -66,7 +66,7 @@ async def login(
     repo = UserRepository(session)
     user = await repo.get_by_email(body.email.lower())
     if not user or not _verify_password(body.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="INVALID_CREDENTIALS")
 
     refresh_token = await issue_refresh_token(session, user.id)
     set_refresh_cookie(response, refresh_token)
