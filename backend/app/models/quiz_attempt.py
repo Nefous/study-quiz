@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,6 +12,9 @@ class QuizAttempt(Base):
     __tablename__ = "quiz_attempts"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     topic: Mapped[str] = mapped_column(String(50), nullable=False)
     difficulty: Mapped[str] = mapped_column(String(20), nullable=False)
     mode: Mapped[str] = mapped_column(String(20), nullable=False)

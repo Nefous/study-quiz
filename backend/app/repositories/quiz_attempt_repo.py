@@ -19,22 +19,36 @@ class QuizAttemptRepository:
         await self.session.refresh(attempt)
         return attempt
 
-    async def list_attempts(self, limit: int = 20, offset: int = 0) -> list[QuizAttempt]:
-        stmt = select(QuizAttempt).order_by(desc(QuizAttempt.created_at)).limit(limit).offset(offset)
+    async def list_attempts(
+        self,
+        user_id,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[QuizAttempt]:
+        stmt = (
+            select(QuizAttempt)
+            .where(QuizAttempt.user_id == user_id)
+            .order_by(desc(QuizAttempt.created_at))
+            .limit(limit)
+            .offset(offset)
+        )
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
-    async def stats(self) -> dict:
+    async def stats(self, user_id) -> dict:
         totals_stmt = select(
             func.count(QuizAttempt.id),
             func.avg(QuizAttempt.score_percent),
             func.max(QuizAttempt.score_percent),
             func.max(QuizAttempt.created_at),
-        )
+        ).where(QuizAttempt.user_id == user_id)
         totals_result = await self.session.execute(totals_stmt)
         total_attempts, avg_score, best_score, last_attempt_at = totals_result.one()
 
-        attempts_stmt = select(QuizAttempt.topic, QuizAttempt.score_percent, QuizAttempt.meta)
+        attempts_stmt = (
+            select(QuizAttempt.topic, QuizAttempt.score_percent, QuizAttempt.meta)
+            .where(QuizAttempt.user_id == user_id)
+        )
         attempts_result = await self.session.execute(attempts_stmt)
         bucket: dict[str, dict[str, int]] = {}
         for topic, score_percent, meta in attempts_result.all():

@@ -21,7 +21,7 @@ app = FastAPI(title="QuizStudy API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=False,
+    allow_credentials=settings.ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

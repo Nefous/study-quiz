@@ -5,6 +5,7 @@ from app.db.session import get_session
 from app.schemas.quiz import QuizGenerateRequest, QuizGenerateResponse
 from app.services.quiz_service import QuizService
 from app.utils.enums import Difficulty, QuizMode, Topic
+from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/quiz")
 
@@ -21,6 +22,7 @@ def parse_enum(value: str, enum_cls, field: str):
 @router.post("/generate", response_model=QuizGenerateResponse)
 async def generate_quiz(
     body: dict = Body(...),
+    user=Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> QuizGenerateResponse:
     if "difficulty" not in body or "mode" not in body:
