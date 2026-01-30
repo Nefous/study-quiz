@@ -21,6 +21,8 @@ import PageHeader from "../components/ui/PageHeader";
 import StatCard from "../components/ui/StatCard";
 import { cn } from "../components/ui/cn";
 import { useAuth } from "../context/AuthContext";
+import { PERCENT_MULTIPLIER, SCORE_THRESHOLDS } from "../config/quiz";
+
 
 type ResultsState = {
   settings: {
@@ -367,7 +369,7 @@ export default function Results() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {Object.entries(breakdown).map(([type, stats]) => {
-              const percent = Math.round((stats.correct / stats.total) * 100);
+              const percent = Math.round((stats.correct / stats.total) * PERCENT_MULTIPLIER);
               return (
                 <div
                   key={type}
@@ -388,9 +390,9 @@ export default function Results() {
                     <div
                       className={cn(
                         "h-1.5 rounded-full transition-all",
-                        percent >= 70
+                        percent >= SCORE_THRESHOLDS.EXCELLENT
                           ? "bg-emerald-400"
-                          : percent >= 50
+                          : percent >= SCORE_THRESHOLDS.GOOD
                             ? "bg-amber-400"
                             : "bg-rose-400"
                       )}

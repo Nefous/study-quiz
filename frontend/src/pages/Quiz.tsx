@@ -33,6 +33,8 @@ import OptionCard from "../components/ui/OptionCard";
 import Progress from "../components/ui/Progress";
 import Spinner from "../components/ui/Spinner";
 import { cn } from "../components/ui/cn";
+import { PERCENT_MULTIPLIER } from "../config/quiz";
+
 
 type PracticeResult = {
   correct: boolean;
@@ -432,12 +434,12 @@ export default function Quiz() {
   const currentAnswer = answers[question.id] ?? "";
   const isSubmitted = Boolean(submitted[question.id]);
   const progress = questions.length
-    ? ((currentIndex + 1) / questions.length) * 100
-    : 0;
+  ? ((currentIndex + 1) / questions.length) * PERCENT_MULTIPLIER
+  : 0;
   const timeProgress =
-    isExam && timeLimitSeconds && remainingSeconds !== null
-      ? (remainingSeconds / timeLimitSeconds) * 100
-      : 0;
+  isExam && timeLimitSeconds && remainingSeconds !== null
+    ? (remainingSeconds / timeLimitSeconds) * PERCENT_MULTIPLIER
+    : 0;
 
   const { before, code, after, language } = parsePrompt(question.prompt);
 

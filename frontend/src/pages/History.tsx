@@ -20,6 +20,7 @@ import PageHeader from "../components/ui/PageHeader";
 import StatCard from "../components/ui/StatCard";
 import { cn } from "../components/ui/cn";
 import { useAuth } from "../context/AuthContext";
+import { SCORE_THRESHOLDS } from "../config/quiz";
 
 type FilterState = {
   topics: Topic[];
@@ -218,9 +219,9 @@ export default function History() {
             value={`${stats.avg_score_percent}%`}
             icon={<Target size={20} />}
             trend={
-              stats.avg_score_percent >= 70
+              stats.avg_score_percent >= SCORE_THRESHOLDS.EXCELLENT
                 ? "up"
-                : stats.avg_score_percent >= 50
+                : stats.avg_score_percent >= SCORE_THRESHOLDS.GOOD
                   ? "neutral"
                   : "down"
             }
@@ -256,9 +257,9 @@ export default function History() {
                     <span
                       className={cn(
                         "text-sm font-semibold",
-                        percent >= 70
+                        percent >= SCORE_THRESHOLDS.EXCELLENT
                           ? "text-emerald-400"
-                          : percent >= 50
+                          : percent >= SCORE_THRESHOLDS.GOOD
                             ? "text-amber-400"
                             : "text-rose-400"
                       )}
@@ -273,9 +274,9 @@ export default function History() {
                     <div
                       className={cn(
                         "h-1.5 rounded-full transition-all",
-                        percent >= 70
+                        percent >= SCORE_THRESHOLDS.EXCELLENT
                           ? "bg-emerald-400"
-                          : percent >= 50
+                          : percent >= SCORE_THRESHOLDS.GOOD
                             ? "bg-amber-400"
                             : "bg-rose-400"
                       )}
@@ -416,9 +417,9 @@ export default function History() {
           <div className="divide-y divide-white/[0.06]">
             {filteredAttempts.map((attempt) => {
               const scoreColor =
-                attempt.score_percent >= 70
+                attempt.score_percent >= SCORE_THRESHOLDS.EXCELLENT
                   ? "text-emerald-400"
-                  : attempt.score_percent >= 50
+                  : attempt.score_percent >= SCORE_THRESHOLDS.GOOD
                     ? "text-amber-400"
                     : "text-rose-400";
               const metaTopics = attempt.meta?.topics ?? [];
