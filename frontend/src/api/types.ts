@@ -57,6 +57,11 @@ export type AttemptCreate = {
   meta?: {
     topics?: Topic[];
   };
+  started_at?: string | null;
+  finished_at?: string | null;
+  time_limit_seconds?: number | null;
+  time_spent_seconds?: number | null;
+  timed_out?: boolean | null;
 };
 
 export type AttemptOut = AttemptCreate & {
@@ -77,6 +82,14 @@ export type AttemptStats = {
   best_score_percent: number;
   last_attempt_at: string | null;
   by_topic: AttemptTopicStats[];
+};
+
+export type QuizSummary = {
+  total: number;
+  correct: number;
+  percent: number;
+  timeUsedSec?: number;
+  timeLimitSec?: number;
 };
 
 export type User = {

@@ -41,6 +41,10 @@ export async function listAttempts(limit = 20, offset = 0): Promise<AttemptOut[]
   );
 }
 
+export async function getAttempt(attemptId: string): Promise<AttemptOut> {
+  return request<AttemptOut>(apiUrl(`/attempts/${attemptId}`));
+}
+
 export async function getAttemptStats(): Promise<AttemptStats> {
   return request<AttemptStats>(apiUrl("/attempts/stats"));
 }

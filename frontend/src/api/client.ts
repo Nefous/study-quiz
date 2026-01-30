@@ -71,7 +71,7 @@ export async function request<T>(
 
 export async function getHint(
   questionId: string,
-  payload: { user_answer?: string; level: number }
+  payload: { user_answer?: string; level: number; attempt_id?: string }
 ): Promise<{ hint: string }> {
   try {
     return await request<{ hint: string }>(

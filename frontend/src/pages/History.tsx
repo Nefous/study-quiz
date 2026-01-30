@@ -19,6 +19,7 @@ import EmptyState from "../components/ui/EmptyState";
 import PageHeader from "../components/ui/PageHeader";
 import StatCard from "../components/ui/StatCard";
 import { cn } from "../components/ui/cn";
+import { useAuth } from "../context/AuthContext";
 
 type FilterState = {
   topics: Topic[];
@@ -40,6 +41,7 @@ const ALL_MODES: QuizMode[] = ["practice", "exam"];
 
 export default function History() {
   const navigate = useNavigate();
+  const { status } = useAuth();
   const [stats, setStats] = useState<AttemptStats | null>(null);
   const [attempts, setAttempts] = useState<AttemptOut[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +57,7 @@ export default function History() {
     let active = true;
     const load = async () => {
       try {
+        if (status !== "authed") return;
         setLoading(true);
         const [statsResponse, attemptsResponse] = await Promise.all([
           getAttemptStats(),
@@ -79,7 +82,13 @@ export default function History() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [status]);
+
+  useEffect(() => {
+    if (status === "guest") {
+      navigate("/login", { replace: true });
+    }
+  }, [navigate, status]);
 
   const filteredAttempts = useMemo(() => {
     return attempts.filter((attempt) => {
@@ -129,7 +138,7 @@ export default function History() {
     setFilters({ topics: [], difficulties: [], modes: [] });
   };
 
-  if (loading) {
+  if (loading || status === "loading") {
     return (
       <div className="space-y-8">
         <PageHeader
@@ -463,13 +472,22 @@ export default function History() {
                       </Badge>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className={cn("text-lg font-semibold", scoreColor)}>
-                      {attempt.score_percent}%
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {attempt.correct_count}/{attempt.total_count} correct
-                    </p>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className={cn("text-lg font-semibold", scoreColor)}>
+                        {attempt.score_percent}%
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {attempt.correct_count}/{attempt.total_count} correct
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigate(`/results/${attempt.id}`)}
+                    >
+                      View
+                    </Button>
                   </div>
                 </div>
               );

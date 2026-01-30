@@ -13,6 +13,7 @@ type AuthContextValue = {
   user: User | null;
   accessToken: string | null;
   loading: boolean;
+  status: "loading" | "authed" | "guest";
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
@@ -124,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       accessToken,
       loading,
+      status: loading ? "loading" : user ? "authed" : "guest",
       isAuthenticated: Boolean(user),
       login,
       register,

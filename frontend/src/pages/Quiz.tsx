@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -18,6 +18,7 @@ import type {
   QuizGenerateResponse,
   QuizMode,
   QuizQuestion,
+  QuizSummary,
   Topic,
   ApiError
 } from "../api/types";
@@ -41,8 +42,9 @@ type PracticeResult = {
 
 const STORAGE_PREFIX = "quizstate";
 const RESULTS_PREFIX = "quizresults";
+const TIMER_PREFIX = "quiztimer";
 const MAX_HINTS = 3;
-const HINT_PENALTIES: Record<number, number> = { 1: 5, 2: 10, 3: 20 };
+const HINT_PENALTIES: Record<number, number> = { 1: 15, 2: 25, 3: 50 };
 const HINT_LEVEL_LABELS: Record<number, string> = {
   1: "Light",
   2: "Medium",
@@ -72,7 +74,13 @@ export default function Quiz() {
   const [hintErrorByQuestionId, setHintErrorByQuestionId] = useState<Record<string, string>>({});
   const [usedHintsCount, setUsedHintsCount] = useState(0);
   const [penaltyTotal, setPenaltyTotal] = useState(0);
+  const [penaltyByQuestion, setPenaltyByQuestion] = useState<Record<string, number>>({});
   const [hintsUsedByQuestion, setHintsUsedByQuestion] = useState<Record<string, number>>({});
+  const [startedAt, setStartedAt] = useState<string | null>(null);
+  const [timeLimitSeconds, setTimeLimitSeconds] = useState<number | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const finishTriggeredRef = useRef(false);
+  const lastTickRef = useRef<number | null>(null);
 
   const settings = useMemo<QuizGenerateRequest | null>(() => {
     const topic = params.get("topic") as Topic | null;
@@ -119,6 +127,8 @@ export default function Quiz() {
     };
   }, [params]);
 
+  const isExamMode = settings?.mode === "exam";
+
   const storageKey = useMemo(() => {
     if (!settings) return `${STORAGE_PREFIX}:invalid`;
     const topicsKey = settings.topic === "random"
@@ -128,6 +138,8 @@ export default function Quiz() {
       settings.size ?? "default"
     }`;
   }, [settings]);
+
+  const timerStorageKey = useMemo(() => `${TIMER_PREFIX}:${attemptId}`, [attemptId]);
 
   useEffect(() => {
     if (!settings) {
@@ -155,8 +167,11 @@ export default function Quiz() {
               hintErrorByQuestionId?: Record<string, string>;
               usedHintsCount?: number;
               penaltyTotal?: number;
+              penaltyByQuestion?: Record<string, number>;
               hintsUsedByQuestion?: Record<string, number>;
               attemptId?: string;
+              startedAt?: string | null;
+              timeLimitSeconds?: number | null;
             };
             if (parsed?.quiz?.questions?.length) {
               if (active) {
@@ -170,7 +185,10 @@ export default function Quiz() {
                 setHintErrorByQuestionId(parsed.hintErrorByQuestionId || {});
                 setUsedHintsCount(parsed.usedHintsCount || 0);
                 setPenaltyTotal(parsed.penaltyTotal || 0);
+                setPenaltyByQuestion(parsed.penaltyByQuestion || {});
                 setHintsUsedByQuestion(parsed.hintsUsedByQuestion || {});
+                setStartedAt(parsed.startedAt ?? null);
+                setTimeLimitSeconds(parsed.timeLimitSeconds ?? null);
                 if (parsed.attemptId && parsed.attemptId !== attemptId) {
                   setAttemptId(parsed.attemptId);
                 }
@@ -224,11 +242,144 @@ export default function Quiz() {
         hintErrorByQuestionId,
         usedHintsCount,
         penaltyTotal,
+        penaltyByQuestion,
         hintsUsedByQuestion,
-        attemptId
+        attemptId,
+        startedAt,
+        timeLimitSeconds
       })
     );
-  }, [answers, attemptId, currentIndex, hintByQuestionId, hintErrorByQuestionId, hintLoadingByQuestionId, hintsUsedByQuestion, penaltyTotal, quiz, results, storageKey, submitted, usedHintsCount]);
+  }, [answers, attemptId, currentIndex, hintByQuestionId, hintErrorByQuestionId, hintLoadingByQuestionId, hintsUsedByQuestion, penaltyByQuestion, penaltyTotal, quiz, results, storageKey, submitted, usedHintsCount, startedAt, timeLimitSeconds]);
+
+  useEffect(() => {
+    finishTriggeredRef.current = false;
+  }, [quiz?.quiz_id]);
+
+  const completeQuiz = (didTimeOut: boolean) => {
+    if (finishTriggeredRef.current) return;
+    if (!quiz || !settings) return;
+    finishTriggeredRef.current = true;
+
+    const totalQuestions = quiz.questions.length;
+    const computedResults = quiz.questions.reduce<Record<string, PracticeResult>>((acc, current) => {
+      const expected = normalizeAnswer(current.correct_answer ?? "");
+      const provided = normalizeAnswer(answers[current.id] ?? "");
+      const isCorrect = expected === provided;
+      const existing = results[current.id];
+      acc[current.id] = existing ?? {
+        correct: isCorrect,
+        correctAnswer: current.correct_answer ?? "",
+        explanation: isPractice ? current.explanation : undefined
+      };
+      return acc;
+    }, {});
+    const correctCount = Object.values(computedResults).filter((r) => r.correct).length;
+    const adjustedPoints = quiz.questions.reduce((sum, current) => {
+      const isCorrect = computedResults[current.id]?.correct ?? false;
+      if (!isCorrect) return sum;
+      const penalty = (penaltyByQuestion[current.id] ?? 0) / 100;
+      return sum + Math.max(0, 1 - penalty);
+    }, 0);
+    const percent = totalQuestions
+      ? Math.round((adjustedPoints / totalQuestions) * 100)
+      : 0;
+    const timeLimit = timeLimitSeconds ?? null;
+    const timeSpent =
+      timeLimit !== null && remainingSeconds !== null
+        ? Math.max(0, timeLimit - remainingSeconds)
+        : null;
+    const finishedAt = new Date().toISOString();
+    const summary: QuizSummary = {
+      total: totalQuestions,
+      correct: correctCount,
+      percent,
+      timeUsedSec: timeSpent ?? undefined,
+      timeLimitSec: timeLimit ?? undefined
+    };
+
+    const payload = {
+      settings,
+      quiz_id: quiz.quiz_id,
+      attempt_id: attemptId,
+      questions: quiz.questions,
+      answers,
+      mode: settings.mode,
+      practiceResults: isPractice ? computedResults : undefined,
+      penaltyByQuestion,
+      summary,
+      raw_score_percent: percent,
+      usedHintsCount,
+      penaltyTotal,
+      timed_out: didTimeOut || false,
+      time_limit_seconds: timeLimit ?? undefined,
+      time_spent_seconds: timeSpent ?? undefined,
+      started_at: startedAt ?? undefined,
+      finished_at: finishedAt
+    };
+    sessionStorage.setItem(`${RESULTS_PREFIX}:${quiz.quiz_id}`, JSON.stringify(payload));
+    sessionStorage.setItem(`${RESULTS_PREFIX}:last`, JSON.stringify(payload));
+    sessionStorage.removeItem(storageKey);
+    localStorage.removeItem(timerStorageKey);
+    navigate("/results", { state: payload });
+  };
+
+  useEffect(() => {
+    if (!quiz || !isExamMode || !settings) return;
+    const limit = getExamTimeLimit(settings.size ?? quiz.questions.length);
+    setTimeLimitSeconds((prev) => prev ?? limit);
+    if (!startedAt) {
+      setStartedAt(new Date().toISOString());
+    }
+
+    if (remainingSeconds === null) {
+      const stored = localStorage.getItem(timerStorageKey);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as { remaining: number; updatedAt: string };
+          const updatedAt = new Date(parsed.updatedAt).getTime();
+          const elapsed = Math.max(0, Math.floor((Date.now() - updatedAt) / 1000));
+          const nextRemaining = Math.max(0, Math.min(limit, parsed.remaining - elapsed));
+          setRemainingSeconds(nextRemaining);
+          return;
+        } catch {
+          localStorage.removeItem(timerStorageKey);
+        }
+      }
+      setRemainingSeconds(limit);
+    }
+  }, [quiz, isExamMode, remainingSeconds, settings, startedAt, timerStorageKey]);
+
+  useEffect(() => {
+    if (!isExamMode || remainingSeconds === null) return;
+    localStorage.setItem(
+      timerStorageKey,
+      JSON.stringify({ remaining: remainingSeconds, updatedAt: new Date().toISOString() })
+    );
+  }, [isExamMode, remainingSeconds, timerStorageKey]);
+
+  useEffect(() => {
+    if (!isExamMode || remainingSeconds === null) return;
+    if (remainingSeconds <= 0) return;
+    lastTickRef.current = Date.now();
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      const lastTick = lastTickRef.current ?? now;
+      const elapsed = Math.floor((now - lastTick) / 1000);
+      if (elapsed <= 0) return;
+      lastTickRef.current = now;
+      setRemainingSeconds((prev) => {
+        if (prev === null) return prev;
+        return Math.max(0, prev - elapsed);
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [isExamMode, remainingSeconds]);
+
+  useEffect(() => {
+    if (!isExamMode || remainingSeconds === null) return;
+    if (remainingSeconds > 0) return;
+    completeQuiz(true);
+  }, [isExamMode, remainingSeconds]);
 
   if (!settings) {
     return null;
@@ -277,29 +428,32 @@ export default function Quiz() {
   const questions = quiz.questions;
   const question = questions[currentIndex];
   const isPractice = settings.mode === "practice";
+  const isExam = settings.mode === "exam";
   const currentAnswer = answers[question.id] ?? "";
   const isSubmitted = Boolean(submitted[question.id]);
   const progress = questions.length
     ? ((currentIndex + 1) / questions.length) * 100
     : 0;
+  const timeProgress =
+    isExam && timeLimitSeconds && remainingSeconds !== null
+      ? (remainingSeconds / timeLimitSeconds) * 100
+      : 0;
 
   const { before, code, after, language } = parsePrompt(question.prompt);
 
   const handleSubmit = () => {
     if (isSubmitted) return;
     const normalizedAnswer = normalizeAnswer(currentAnswer);
+    const expected = normalizeAnswer(question.correct_answer ?? "");
     setSubmitted((prev) => ({ ...prev, [question.id]: true }));
-    if (isPractice) {
-      const expected = normalizeAnswer(question.correct_answer ?? "");
-      setResults((prev) => ({
-        ...prev,
-        [question.id]: {
-          correct: normalizedAnswer === expected,
-          correctAnswer: question.correct_answer ?? "",
-          explanation: question.explanation
-        }
-      }));
-    }
+    setResults((prev) => ({
+      ...prev,
+      [question.id]: {
+        correct: normalizedAnswer === expected,
+        correctAnswer: question.correct_answer ?? "",
+        explanation: isPractice ? question.explanation : undefined
+      }
+    }));
   };
 
   const handleNext = () => {
@@ -307,42 +461,12 @@ export default function Quiz() {
       setCurrentIndex((prev) => prev + 1);
       return;
     }
-
-    const totalQuestions = questions.length;
-    const rawScore = isPractice
-      ? questions.reduce((acc, current) => {
-          if (results[current.id]) {
-            return acc + (results[current.id].correct ? 1 : 0);
-          }
-          const expected = normalizeAnswer(current.correct_answer ?? "");
-          const provided = normalizeAnswer(answers[current.id] ?? "");
-          return acc + (expected === provided ? 1 : 0);
-        }, 0)
-      : 0;
-    const rawScorePercent = totalQuestions
-      ? Math.round((rawScore / totalQuestions) * 100)
-      : 0;
-
-    const payload = {
-      settings,
-      quiz_id: quiz.quiz_id,
-      attempt_id: attemptId,
-      questions,
-      answers,
-      mode: settings.mode,
-      practiceResults: results,
-      raw_score_percent: rawScorePercent,
-      usedHintsCount,
-      penaltyTotal
-    };
-    sessionStorage.setItem(`${RESULTS_PREFIX}:${quiz.quiz_id}`, JSON.stringify(payload));
-    sessionStorage.setItem(`${RESULTS_PREFIX}:last`, JSON.stringify(payload));
-    sessionStorage.removeItem(storageKey);
-    navigate("/results", { state: payload });
+    completeQuiz(false);
   };
 
   const handleQuit = () => {
     sessionStorage.removeItem(storageKey);
+    localStorage.removeItem(timerStorageKey);
     navigate("/");
   };
 
@@ -359,7 +483,8 @@ export default function Quiz() {
       return;
     }
 
-    const payload: { user_answer?: string; level: number } = {
+    const payload: { user_answer?: string; level: number; attempt_id?: string } = {
+      attempt_id: attemptId,
       level: hintLevel
     };
 
@@ -380,6 +505,10 @@ export default function Quiz() {
       const penalty = HINT_PENALTIES[hintLevel] ?? 0;
       setUsedHintsCount((prev) => prev + 1);
       setPenaltyTotal((prev) => prev + penalty);
+      setPenaltyByQuestion((prev) => ({
+        ...prev,
+        [question.id]: (prev[question.id] ?? 0) + penalty
+      }));
       setHintsUsedByQuestion((prev) => ({
         ...prev,
         [question.id]: (prev[question.id] ?? 0) + 1
@@ -416,20 +545,22 @@ export default function Quiz() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowHintDrawer(true)}
-              disabled={isSubmitted}
-            >
-              <Lightbulb size={16} />
-              <span className="hidden sm:inline">Hint</span>
-              {usedHintsCount > 0 && (
-                <span className="ml-1 rounded-full bg-amber-500/20 px-1.5 text-xs text-amber-300">
-                  {usedHintsCount}/{MAX_HINTS}
-                </span>
-              )}
-            </Button>
+            {isPractice ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowHintDrawer(true)}
+                disabled={isSubmitted}
+              >
+                <Lightbulb size={16} />
+                <span className="hidden sm:inline">Hint</span>
+                {usedHintsCount > 0 && (
+                  <span className="ml-1 rounded-full bg-amber-500/20 px-1.5 text-xs text-amber-300">
+                    {usedHintsCount}/{MAX_HINTS}
+                  </span>
+                )}
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               size="sm"
@@ -441,6 +572,17 @@ export default function Quiz() {
           </div>
         </div>
         <Progress value={progress} className="mt-4" />
+        {isExam ? (
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>Time remaining</span>
+              <span className="font-semibold text-slate-200">
+                {formatTime(remainingSeconds ?? timeLimitSeconds ?? 0)}
+              </span>
+            </div>
+            <Progress value={timeProgress} />
+          </div>
+        ) : null}
       </Card>
 
       {/* Question card */}
@@ -585,99 +727,101 @@ export default function Quiz() {
       </Card>
 
       {/* AI Hint Drawer */}
-      <Drawer
-        open={showHintDrawer}
-        onClose={() => setShowHintDrawer(false)}
-        title="AI Hint"
-        description="Get intelligent guidance without revealing the answer."
-      >
-        <div className="space-y-6">
-          {/* Hint level selector */}
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-slate-300">Hint Level</p>
-            <div className="grid grid-cols-3 gap-2">
-              {[1, 2, 3].map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  onClick={() => setHintLevel(level)}
-                  className={cn(
-                    "rounded-xl py-3 text-sm font-medium transition",
-                    hintLevel === level
-                      ? "bg-indigo-500/20 text-indigo-200 ring-2 ring-indigo-500/40"
-                      : "bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-300"
-                  )}
-                >
-                  {HINT_LEVEL_LABELS[level]}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-slate-500">
-              {hintLevel === 1 && "Gentle nudge in the right direction"}
-              {hintLevel === 2 && "More specific guidance"}
-              {hintLevel === 3 && "Detailed explanation (higher penalty)"}
-            </p>
-          </div>
-
-          {/* Stats */}
-          <div className="flex items-center gap-6 rounded-xl bg-white/[0.03] p-4">
-            <div>
-              <p className="text-xs text-slate-400">Hints used</p>
-              <p className="text-lg font-semibold text-white">
-                {usedHintsCount}
-                <span className="text-sm text-slate-500">/{MAX_HINTS}</span>
+      {isPractice ? (
+        <Drawer
+          open={showHintDrawer}
+          onClose={() => setShowHintDrawer(false)}
+          title="AI Hint"
+          description="Get intelligent guidance without revealing the answer."
+        >
+          <div className="space-y-6">
+            {/* Hint level selector */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-slate-300">Hint Level</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 2, 3].map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setHintLevel(level)}
+                    className={cn(
+                      "rounded-xl py-3 text-sm font-medium transition",
+                      hintLevel === level
+                        ? "bg-indigo-500/20 text-indigo-200 ring-2 ring-indigo-500/40"
+                        : "bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-300"
+                    )}
+                  >
+                    {HINT_LEVEL_LABELS[level]}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500">
+                {hintLevel === 1 && "Gentle nudge in the right direction"}
+                {hintLevel === 2 && "More specific guidance"}
+                {hintLevel === 3 && "Detailed explanation (higher penalty)"}
               </p>
             </div>
-            <div className="h-8 w-px bg-white/10" />
-            <div>
-              <p className="text-xs text-slate-400">Current penalty</p>
-              <p className="text-lg font-semibold text-amber-400">
-                {penaltyTotal > 0 ? '-' : ''}{penaltyTotal}%
-              </p>
-            </div>
-          </div>
 
-          {/* Get hint button */}
-          <Button
-            onClick={handleHint}
-            disabled={hintLoading || usedHintsCount >= MAX_HINTS || Boolean(hint)}
-            className="w-full"
-          >
-            {hintLoading ? (
-              <>
-                <Spinner className="h-4 w-4" />
-                Generating hint...
-              </>
-            ) : hint ? (
-              "Hint received"
-            ) : usedHintsCount >= MAX_HINTS ? (
-              "No hints remaining"
-            ) : (
-              <>
-                <Sparkles size={16} />
-                Get {HINT_LEVEL_LABELS[hintLevel]} Hint (-{HINT_PENALTIES[hintLevel]}%)
-              </>
-            )}
-          </Button>
-
-          {/* Error */}
-          {hintError ? <Alert>{hintError}</Alert> : null}
-
-          {/* Hint response */}
-          {hint ? (
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                AI Response
-              </p>
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">
-                  {hint}
+            {/* Stats */}
+            <div className="flex items-center gap-6 rounded-xl bg-white/[0.03] p-4">
+              <div>
+                <p className="text-xs text-slate-400">Hints used</p>
+                <p className="text-lg font-semibold text-white">
+                  {usedHintsCount}
+                  <span className="text-sm text-slate-500">/{MAX_HINTS}</span>
+                </p>
+              </div>
+              <div className="h-8 w-px bg-white/10" />
+              <div>
+                <p className="text-xs text-slate-400">Current penalty</p>
+                <p className="text-lg font-semibold text-amber-400">
+                  {penaltyTotal > 0 ? '-' : ''}{penaltyTotal}%
                 </p>
               </div>
             </div>
-          ) : null}
-        </div>
-      </Drawer>
+
+            {/* Get hint button */}
+            <Button
+              onClick={handleHint}
+              disabled={hintLoading || usedHintsCount >= MAX_HINTS || Boolean(hint)}
+              className="w-full"
+            >
+              {hintLoading ? (
+                <>
+                  <Spinner className="h-4 w-4" />
+                  Generating hint...
+                </>
+              ) : hint ? (
+                "Hint received"
+              ) : usedHintsCount >= MAX_HINTS ? (
+                "No hints remaining"
+              ) : (
+                <>
+                  <Sparkles size={16} />
+                  Get {HINT_LEVEL_LABELS[hintLevel]} Hint (-{HINT_PENALTIES[hintLevel]}%)
+                </>
+              )}
+            </Button>
+
+            {/* Error */}
+            {hintError ? <Alert>{hintError}</Alert> : null}
+
+            {/* Hint response */}
+            {hint ? (
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  AI Response
+                </p>
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">
+                    {hint}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </Drawer>
+      ) : null}
 
       {/* Quit confirmation modal */}
       <Modal
@@ -694,6 +838,18 @@ export default function Quiz() {
 
 function normalizeAnswer(value: string) {
   return value.replace(/\r\n/g, "\n").trim();
+}
+
+function formatTime(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.max(0, totalSeconds % 60);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getExamTimeLimit(size: number) {
+  if (size <= 5) return 4 * 60;
+  if (size <= 10) return 8 * 60;
+  return 12 * 60;
 }
 
 function parsePrompt(prompt: string) {

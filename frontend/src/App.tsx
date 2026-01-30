@@ -10,12 +10,16 @@ import Results from "./pages/Results";
 import AuthCallback from "./pages/AuthCallback";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  const { user, loading } = useAuth();
+  const { user, status } = useAuth();
   const location = useLocation();
-  if (loading) {
-    return null;
+  if (status === "loading") {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="h-24 animate-pulse rounded-2xl bg-white/[0.03]" />
+      </div>
+    );
   }
-  if (!user) {
+  if (!user || status === "guest") {
     const returnUrl = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?returnUrl=${returnUrl}`} replace />;
   }
@@ -45,7 +49,22 @@ export default function App() {
             </RequireAuth>
           }
         />
-        <Route path="/results" element={<Results />} />
+        <Route
+          path="/results"
+          element={
+            <RequireAuth>
+              <Results />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/results/:attemptId"
+          element={
+            <RequireAuth>
+              <Results />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/profile"
           element={
