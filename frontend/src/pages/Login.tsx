@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Lock, Mail } from "lucide-react";
+import { Chrome, Github, Lock, Mail } from "lucide-react";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -8,6 +8,7 @@ import Input from "../components/ui/Input";
 import PageHeader from "../components/ui/PageHeader";
 import { useAuth } from "../context/AuthContext";
 import type { ApiError } from "../api/types";
+import { apiUrl } from "../api/client";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -112,6 +113,11 @@ export default function Login() {
     }
   };
 
+  const handleOAuthLogin = (provider: "google" | "github") => {
+    const url = apiUrl(`/auth/${provider}/login`);
+    window.location.href = url;
+  };
+
   useEffect(() => {
     if (mode === "signin") {
       setConfirmPassword("");
@@ -156,6 +162,32 @@ export default function Login() {
           >
             Sign Up
           </button>
+        </div>
+
+        <div className="space-y-3">
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={() => handleOAuthLogin("google")}
+          >
+            <Chrome size={16} />
+            Continue with Google
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={() => handleOAuthLogin("github")}
+          >
+            <Github size={16} />
+            Continue with GitHub
+          </Button>
+          <div className="flex items-center gap-3 text-xs text-slate-500">
+            <span className="h-px flex-1 bg-white/10" />
+            or
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit} noValidate>
@@ -240,9 +272,11 @@ export default function Login() {
                 }
               />
             </div>
-            <p className="text-xs text-slate-500">
-              Password must be at least 8 characters and include at least 1 letter and 1 number.
-            </p>
+            {mode === "signup" ? (
+              <p className="text-xs text-slate-500">
+                Password must be at least 8 characters and include at least 1 letter and 1 number.
+              </p>
+            ) : null}
             {touched.password && fieldErrors.password ? (
               <p className="text-xs text-rose-300">{fieldErrors.password}</p>
             ) : null}

@@ -1,14 +1,44 @@
-import { Mail, LogOut, History } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { LogOut, Mail, UserCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getAttemptStats } from "../api";
+import type { AttemptStats } from "../api/types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
-import BrandLogo from "../components/BrandLogo";
 import { useAuth } from "../context/AuthContext";
 
 export default function Profile() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [stats, setStats] = useState<AttemptStats | null>(null);
+
+  const createdAtLabel = useMemo(() => {
+    if (!user?.created_at) return null;
+    const date = new Date(user.created_at);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString();
+  }, [user?.created_at]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const response = await getAttemptStats();
+        if (active) {
+          setStats(response);
+        }
+      } catch {
+        if (active) {
+          setStats(null);
+        }
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -16,45 +46,50 @@ export default function Profile() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-xl space-y-6">
       <PageHeader
         badge="Profile"
         title="Your account"
-        description="Manage your session and view your history."
+        description="Account details and stats"
       />
 
-      <Card variant="elevated" className="space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04]">
-            <BrandLogo size="md" />
+      <Card variant="elevated" className="space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.04]">
+            <UserCircle size={18} className="text-slate-300" />
           </div>
           <div>
             <p className="text-sm text-slate-400">Signed in as</p>
-            <p className="text-lg font-semibold text-white">{user?.email ?? ""}</p>
+            <p className="text-base font-semibold text-white">{user?.email ?? ""}</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <Button variant="secondary" onClick={() => navigate("/history")}
-          >
-            <History size={16} />
-            View History
-          </Button>
+        {createdAtLabel ? (
+          <div className="text-sm text-slate-400">
+            <span className="text-slate-500">Created</span>
+            <span className="ml-2 text-slate-300">{createdAtLabel}</span>
+          </div>
+        ) : null}
+
+        {stats ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <p className="text-xs text-slate-400">Attempts</p>
+              <p className="text-lg font-semibold text-white">{stats.total_attempts}</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <p className="text-xs text-slate-400">Average score</p>
+              <p className="text-lg font-semibold text-white">{stats.avg_score_percent}%</p>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="flex">
           <Button variant="ghost" onClick={handleLogout}>
             <LogOut size={16} />
             Log out
           </Button>
         </div>
-      </Card>
-
-      <Card variant="subtle" className="space-y-3">
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <Mail size={14} />
-          <span>{user?.email ?? ""}</span>
-        </div>
-        <Link className="text-sm text-indigo-300 hover:text-indigo-200" to="/history">
-          Go to History
-        </Link>
       </Card>
     </div>
   );

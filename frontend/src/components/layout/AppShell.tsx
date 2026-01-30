@@ -75,7 +75,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                 className="ml-2"
                 onClick={() => navigate("/login")}
               >
-                Sign in
+                Login
               </Button>
             )}
 
