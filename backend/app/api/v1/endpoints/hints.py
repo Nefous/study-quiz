@@ -1,8 +1,11 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core.config import get_settings
 from app.db.session import get_session
@@ -13,12 +16,16 @@ from app.repositories.quiz_attempt_repo import QuizAttemptRepository
 from app.schemas.hint import HintRequest, HintResponse
 from app.utils.enums import QuestionType
 
+
 router = APIRouter(prefix="/questions", tags=["hints"])
 logger = logging.getLogger(__name__)
 
+limiter = Limiter(key_func=get_remote_address)
 
 @router.post("/{question_id}/hint", response_model=HintResponse)
+@limiter.limit("5/minute")  
 async def hint(
+    request: Request, 
     question_id: UUID,
     body: HintRequest,
     session: AsyncSession = Depends(get_session),
@@ -44,7 +51,7 @@ async def hint(
 
     payload = {
         "question_prompt": question.prompt,
-        "question_type": question.type,  # Already a string, no .value needed
+        "question_type": question.type,
         "choices_text": choices_text,
         "user_answer": body.user_answer or "",
         "level": body.level,

@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +7,10 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.routing import APIRoute
+
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
@@ -16,7 +21,34 @@ settings = get_settings()
 configure_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="QuizStudy API", version="1.0.0")
+limiter = Limiter(key_func=get_remote_address)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup events
+    logger.info("CORS origins: %s", settings.CORS_ORIGINS)
+    hint_routes = [
+        f"{sorted(route.methods or [])} {route.path}"
+        for route in app.routes
+        if isinstance(route, APIRoute) and "/hint" in route.path
+    ]
+    logger.info("Hint routes: %s", hint_routes)
+    await seed_if_empty()
+    logger.info("Application startup complete")
+    
+    yield
+    
+    logger.info("Application shutting down")
+
+
+app = FastAPI(
+    title="QuizStudy API",
+    version="1.0.0",
+    lifespan=lifespan  
+)
+
+app.state.limiter = limiter
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,6 +59,19 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": {
+                "message": "Too many requests. Please try again later.",
+                "status": 429,
+                "detail": str(exc.detail)
+            }
+        },
+    )
 
 
 @app.get("/__debug")
@@ -65,15 +110,3 @@ async def validation_exception_handler(
         status_code=400,
         content={"error": {"message": "Invalid request", "status": 400}},
     )
-
-
-@app.on_event("startup")
-async def seed_on_startup() -> None:
-    logger.info("CORS origins: %s", settings.CORS_ORIGINS)
-    hint_routes = [
-        f"{sorted(route.methods or [])} {route.path}"
-        for route in app.routes
-        if isinstance(route, APIRoute) and "/hint" in route.path
-    ]
-    logger.info("Hint routes: %s", hint_routes)
-    await seed_if_empty()
