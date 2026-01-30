@@ -6,6 +6,9 @@ from hashlib import sha256
 from pathlib import Path
 import secrets
 import uuid
+import base64
+import hmac
+import json
 
 import jwt
 from fastapi import Depends, HTTPException, Response
@@ -57,6 +60,33 @@ def decode_access_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail="Access token expired") from exc
     except jwt.InvalidTokenError as exc:
         raise HTTPException(status_code=401, detail="Invalid access token") from exc
+
+
+def create_oauth_state(payload: dict) -> str:
+    data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    signature = hmac.new(settings.SECRET_KEY.encode("utf-8"), data, sha256).digest()
+    encoded_data = base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
+    encoded_sig = base64.urlsafe_b64encode(signature).decode("utf-8").rstrip("=")
+    return f"{encoded_data}.{encoded_sig}"
+
+
+def verify_oauth_state(state: str) -> dict:
+    try:
+        encoded_data, encoded_sig = state.split(".", 1)
+        padded_data = encoded_data + "=" * (-len(encoded_data) % 4)
+        padded_sig = encoded_sig + "=" * (-len(encoded_sig) % 4)
+        data = base64.urlsafe_b64decode(padded_data.encode("utf-8"))
+        signature = base64.urlsafe_b64decode(padded_sig.encode("utf-8"))
+        expected = hmac.new(settings.SECRET_KEY.encode("utf-8"), data, sha256).digest()
+        if not hmac.compare_digest(signature, expected):
+            raise HTTPException(status_code=400, detail="Invalid OAuth state")
+        payload = json.loads(data.decode("utf-8"))
+        exp = payload.get("exp")
+        if exp and datetime.now(timezone.utc).timestamp() > float(exp):
+            raise HTTPException(status_code=400, detail="OAuth state expired")
+        return payload
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state") from exc
 
 
 async def get_current_user(
