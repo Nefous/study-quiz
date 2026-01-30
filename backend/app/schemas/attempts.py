@@ -19,6 +19,11 @@ class AttemptCreate(BaseModel):
     total_count: int
     answers: list[AttemptAnswer]
     meta: dict | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    time_limit_seconds: int | None = None
+    time_spent_seconds: int | None = None
+    timed_out: bool | None = None
 
 
 class AttemptOut(BaseModel):
@@ -31,6 +36,11 @@ class AttemptOut(BaseModel):
     total_count: int
     answers: list[AttemptAnswer]
     meta: dict | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    time_limit_seconds: int | None = None
+    time_spent_seconds: int | None = None
+    timed_out: bool | None = None
     created_at: datetime
     score_percent: int
 

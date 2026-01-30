@@ -9,6 +9,7 @@ from app.db.session import get_session
 from app.integrations.hint_chain import generate_hint
 from app.repositories.hint_usage_repo import HintUsageRepository
 from app.repositories.question_repo import QuestionRepository
+from app.repositories.quiz_attempt_repo import QuizAttemptRepository
 from app.schemas.hint import HintRequest, HintResponse
 from app.utils.enums import QuestionType
 
@@ -25,6 +26,12 @@ async def hint(
     settings = get_settings()
     if not settings.GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="AI hints not configured")
+    
+    if body.attempt_id:
+        attempt_repo = QuizAttemptRepository(session)
+        attempt = await attempt_repo.get_by_id(body.attempt_id)
+        if attempt and attempt.mode == "exam":
+            raise HTTPException(status_code=403, detail="HINTS_DISABLED_IN_EXAM")
 
     repo = QuestionRepository(session)
     question = await repo.get_by_id(question_id)

@@ -35,19 +35,41 @@ class QuizAttemptRepository:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
-    async def stats(self, user_id) -> dict:
+    async def get_by_id(self, attempt_id) -> QuizAttempt | None:
+        stmt = select(QuizAttempt).where(QuizAttempt.id == attempt_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def stats(
+        self,
+        user_id,
+        topics: list[str] | None = None,
+        mode: str | None = None,
+        date_from=None,
+        date_to=None,
+    ) -> dict:
+        filters = [QuizAttempt.user_id == user_id]
+        if topics:
+            filters.append(QuizAttempt.topic.in_(topics))
+        if mode:
+            filters.append(QuizAttempt.mode == mode)
+        if date_from is not None:
+            filters.append(QuizAttempt.created_at >= date_from)
+        if date_to is not None:
+            filters.append(QuizAttempt.created_at <= date_to)
+
         totals_stmt = select(
             func.count(QuizAttempt.id),
             func.avg(QuizAttempt.score_percent),
             func.max(QuizAttempt.score_percent),
             func.max(QuizAttempt.created_at),
-        ).where(QuizAttempt.user_id == user_id)
+        ).where(*filters)
         totals_result = await self.session.execute(totals_stmt)
         total_attempts, avg_score, best_score, last_attempt_at = totals_result.one()
 
         attempts_stmt = (
             select(QuizAttempt.topic, QuizAttempt.score_percent, QuizAttempt.meta)
-            .where(QuizAttempt.user_id == user_id)
+            .where(*filters)
         )
         attempts_result = await self.session.execute(attempts_stmt)
         bucket: dict[str, dict[str, int]] = {}

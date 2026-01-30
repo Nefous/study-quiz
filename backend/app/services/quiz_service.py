@@ -42,7 +42,6 @@ class QuizService:
         for q in picked:
             item = QuizQuestionOut.model_validate(q)
             if mode == QuizMode.EXAM:
-                item.correct_answer = None
                 item.explanation = None
             quiz_questions.append(item)
         return QuizGenerateResponse(quiz_id=uuid.uuid4(), questions=quiz_questions)

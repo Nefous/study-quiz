@@ -70,6 +70,14 @@ class QuestionRepository:
     
     async def get_by_id(self, question_id: UUID) -> Question | None:
         return await self.session.get(Question, question_id)
+
+    async def get_by_ids(self, question_ids: list[UUID]) -> list[Question]:
+        if not question_ids:
+            return []
+        result = await self.session.execute(
+            select(Question).where(Question.id.in_(question_ids))
+        )
+        return result.scalars().all()
     
     async def get_random_questions(
         self,
