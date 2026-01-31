@@ -1,7 +1,10 @@
 # QuizStudy
 
-**QuizStudy** is a full-stack web application for Python interview preparation.  
-It allows users to take quizzes on key topics such as **Python Core**, **Big O notation**, **Algorithms**, and **Data Structures**, with support for **AI-powered hints**, progress tracking, and detailed performance analytics.
+QuizStudy is a full-stack web application for Python interview preparation.  
+It allows users to take quizzes on key topics such as **Python Core**, **Big O notation**, **Algorithms**, and **Data Structures**,  progress tracking, and detailed performance analytics enhanced with AI-powered hints and AI-driven review feedback.
+
+<img src="frontend/src/assets/logo.png" alt="QuizStudy Logo" width="120" />
+
 
 ## ✨ Features
 
@@ -11,6 +14,7 @@ It allows users to take quizzes on key topics such as **Python Core**, **Big O n
 - Exam Mode - timed quizzes with no feedback until completion
 
 ### 📚 Topics
+
 - Python Core  
 - Big O Notation  
 - Algorithms  
@@ -21,10 +25,11 @@ It allows users to take quizzes on key topics such as **Python Core**, **Big O n
 - MCQ (multiple-choice questions)
 - Code Output questions (determine the result of Python code)
 
-### 🤖 AI-Powered Hints 
+### 🤖 AI-Powered 
 - Intelligent contextual hints powered by the Groq API
-- Penalty-based system 
+- Penalty-based system
 - Multiple hint levels, from subtle guidance to more explicit help
+- Ai Review in the end of quiz
 
 ### 🔐 Authentication
 - Email / Password
