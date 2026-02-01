@@ -9,6 +9,7 @@ import type {
   AttemptCreate,
   AttemptOut,
   AttemptStats,
+  AiReviewResponse,
   LoginRequest,
   TokenResponse,
   User
@@ -47,6 +48,14 @@ export async function getAttempt(attemptId: string): Promise<AttemptOut> {
 
 export async function getAttemptStats(): Promise<AttemptStats> {
   return request<AttemptStats>(apiUrl("/attempts/stats"));
+}
+
+export async function getAttemptAiReview(
+  attemptId: string,
+  generate = false
+): Promise<AiReviewResponse> {
+  const query = generate ? "?generate=true" : "";
+  return request<AiReviewResponse>(apiUrl(`/attempts/${attemptId}/ai-review${query}`));
 }
 
 export async function login(payload: LoginRequest): Promise<TokenResponse> {

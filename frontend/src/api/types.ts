@@ -92,6 +92,35 @@ export type QuizSummary = {
   timeLimitSec?: number;
 };
 
+export type AiReviewFocusTopic = {
+  topic: string;
+  why: string;
+  priority: "high" | "medium" | "low";
+};
+
+export type AiReviewStudyPlanItem = {
+  day: number;
+  tasks: string[];
+};
+
+export type AiReviewNextQuizSuggestion = {
+  topics: string[];
+  difficulty: string;
+  size: number;
+};
+
+export type AiReviewResponse = {
+  status?: "ready" | "pending" | "error" | string;
+  raw?: string | null;
+  summary?: string | null;
+  strengths?: string[];
+  weaknesses?: string[];
+  focus_topics?: AiReviewFocusTopic[];
+  study_plan?: AiReviewStudyPlanItem[];
+  next_quiz_suggestion?: AiReviewNextQuizSuggestion | null;
+  ai_review?: Record<string, unknown> | null;
+};
+
 export type User = {
   id: string;
   email: string;

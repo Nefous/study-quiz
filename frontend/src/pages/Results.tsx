@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -11,8 +11,14 @@ import {
   Target,
   Trophy
 } from "lucide-react";
-import { createAttempt, difficultyLabels, getAttempt, topicLabels } from "../api";
-import type { QuizMode, QuizQuestion, QuizSummary, Topic } from "../api/types";
+import { createAttempt, difficultyLabels, getAttempt, getAttemptAiReview, topicLabels } from "../api";
+import type {
+  AiReviewResponse,
+  QuizMode,
+  QuizQuestion,
+  QuizSummary,
+  Topic
+} from "../api/types";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -22,7 +28,6 @@ import StatCard from "../components/ui/StatCard";
 import { cn } from "../components/ui/cn";
 import { useAuth } from "../context/AuthContext";
 import { PERCENT_MULTIPLIER, SCORE_THRESHOLDS } from "../config/quiz";
-
 
 type ResultsState = {
   settings: {
@@ -57,12 +62,20 @@ export default function Results() {
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams();
+  const createAttemptOnceRef = useRef(false);
+  const lastFetchedAttemptIdRef = useRef<string | null>(null);
   const { status } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [summary, setSummary] = useState<QuizSummary | null>(null);
   const [attemptMode, setAttemptMode] = useState<QuizMode | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [aiReview, setAiReview] = useState<AiReviewResponse | null>(null);
+  const [aiReviewLoading, setAiReviewLoading] = useState(false);
+  const [aiReviewError, setAiReviewError] = useState<string | null>(null);
+  const [serverAttemptId, setServerAttemptId] = useState<string | null>(null);
+  const [creatingAttempt, setCreatingAttempt] = useState(false);
+  const [attemptReady, setAttemptReady] = useState(false);
   const state = (location.state as ResultsState | null) ?? readStoredResults();
 
   const settings = state?.settings;
@@ -71,42 +84,38 @@ export default function Results() {
   const mode = state?.mode ?? attemptMode ?? "practice";
   const practiceResults = state?.practiceResults;
   const attemptId =
-    (params.attemptId as string | undefined) ?? state?.attempt_id ?? state?.quiz_id ?? null;
+    (params.attemptId as string | undefined) ?? state?.attempt_id ?? serverAttemptId ?? null;
   const isPractice = mode === "practice";
   const isExam = mode === "exam";
   const hasDetails = Boolean(state && settings && questions.length > 0);
 
-  useEffect(() => {
-    if (status !== "authed") return;
-    if (state?.summary) {
-      setSummary(state.summary);
-      return;
-    }
-    if (!attemptId) return;
-    setSummaryLoading(true);
-    setSummaryError(null);
-    getAttempt(attemptId)
-      .then((attempt) => {
-        setSummary({
-          total: attempt.total_count,
-          correct: attempt.correct_count,
-          percent: attempt.score_percent,
-          timeUsedSec: attempt.time_spent_seconds ?? undefined,
-          timeLimitSec: attempt.time_limit_seconds ?? undefined
-        });
-        setAttemptMode(attempt.mode);
-      })
-      .catch((err) => {
-        setSummaryError(err instanceof Error ? err.message : "Failed to load summary");
-      })
-      .finally(() => setSummaryLoading(false));
-  }, [attemptId, state?.summary, status]);
+  const immediateSummary = useMemo<QuizSummary | null>(() => {
+    if (state?.summary) return state.summary;
+    if (!state?.questions?.length) return null;
+    const totalCount = state.questions.length;
+    const correctCount = state.questions.reduce((acc, question) => {
+      const result = state.practiceResults?.[question.id];
+      if (result) return acc + (result.correct ? 1 : 0);
+      const expected = normalize(question.correct_answer ?? "");
+      const provided = normalize(state.answers?.[question.id] ?? "");
+      return acc + (expected === provided ? 1 : 0);
+    }, 0);
+    const percent = totalCount ? Math.round((correctCount / totalCount) * 100) : 0;
+    return {
+      total: totalCount,
+      correct: correctCount,
+      percent,
+      timeUsedSec: state.time_spent_seconds ?? undefined,
+      timeLimitSec: state.time_limit_seconds ?? undefined
+    };
+  }, [state]);
 
-  const total = summary?.total ?? 0;
-  const correct = summary?.correct ?? 0;
+  const effectiveSummary = summary ?? immediateSummary;
+  const total = effectiveSummary?.total ?? 0;
+  const correct = effectiveSummary?.correct ?? 0;
   const usedHintsCount = state?.usedHintsCount ?? 0;
   const penaltyByQuestion = state?.penaltyByQuestion ?? {};
-  const finalScore = summary ? clamp(summary.percent, 0, 100) : 0;
+  const finalScore = effectiveSummary ? clamp(effectiveSummary.percent, 0, 100) : 0;
 
   const displayTopic = settings
     ? settings.topic === "random"
@@ -118,8 +127,8 @@ export default function Results() {
           : topicLabels[settings.topic as keyof typeof topicLabels] ?? settings.topic
     : "Unknown";
 
-  const timeLimit = summary?.timeLimitSec ?? state?.time_limit_seconds ?? null;
-  const timeSpent = summary?.timeUsedSec ?? state?.time_spent_seconds ?? null;
+  const timeLimit = effectiveSummary?.timeLimitSec ?? state?.time_limit_seconds ?? null;
+  const timeSpent = effectiveSummary?.timeUsedSec ?? state?.time_spent_seconds ?? null;
   const timedOut = Boolean(state?.timed_out);
   const timeMessage = timeLimit !== null && timeSpent !== null
     ? `Time used: ${formatTime(timeSpent)} / ${formatTime(timeLimit)}${timedOut ? " (Timed out)" : ""}`
@@ -127,17 +136,10 @@ export default function Results() {
       ? "Timed out"
       : null;
 
-  useEffect(() => {
-    if (status !== "authed") return;
-    if (!state) return;
-    if (!summary) return;
-    if (!settings) return;
-    const storageKey = `attempt_saved_${attemptId}`;
-    if (localStorage.getItem(storageKey)) return;
-
-    const totalCount = summary.total;
-    const correctCount = summary.correct;
-
+  const attemptPayload = useMemo(() => {
+    if (!state || !effectiveSummary || !settings) return null;
+    const totalCount = effectiveSummary.total;
+    const correctCount = effectiveSummary.correct;
     const selectedTopics = settings.topics ?? [];
     const topicValue = settings.topic === "random"
       ? "random"
@@ -145,7 +147,7 @@ export default function Results() {
         ? "mix"
         : selectedTopics[0] ?? settings.topic;
 
-    const attemptPayload = {
+    return {
       topic: topicValue,
       meta: selectedTopics.length > 1 ? { topics: selectedTopics } : undefined,
       difficulty: settings.difficulty,
@@ -169,15 +171,109 @@ export default function Results() {
       time_spent_seconds: state?.time_spent_seconds ?? null,
       timed_out: state?.timed_out ?? null
     };
+  }, [answers, questions, settings, state, effectiveSummary]);
+
+  const ensureServerAttempt = async (): Promise<string | null> => {
+    if (attemptId) return attemptId;
+    if (!attemptPayload || creatingAttempt) return null;
+    setCreatingAttempt(true);
+    try {
+      const createdAttempt = await createAttempt(attemptPayload);
+      setServerAttemptId(createdAttempt.id);
+      setAttemptReady(true);
+      window.history.replaceState(null, "", `/results/${createdAttempt.id}`);
+      return createdAttempt.id;
+    } finally {
+      setCreatingAttempt(false);
+    }
+  };
+
+  const handleAiReview = async () => {
+    const id = await ensureServerAttempt();
+    if (!id) return;
+    setAiReviewLoading(true);
+    setAiReviewError(null);
+    try {
+      const data = await getAttemptAiReview(id, true);
+      setAiReview(data);
+    } catch (err) {
+      setAiReviewError(err instanceof Error ? err.message : "Failed to load AI review");
+    } finally {
+      setAiReviewLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setAiReview(null);
+    setAiReviewError(null);
+    setAttemptReady(false);
+  }, [attemptId]);
+
+  useEffect(() => {
+    if (status !== "authed") return;
+    if (!attemptId) return;
+    if (state?.summary && state?.attempt_id && attemptId === state.attempt_id) {
+      setSummary(state.summary);
+      return;
+    }
+    if (lastFetchedAttemptIdRef.current === attemptId) return;
+    lastFetchedAttemptIdRef.current = attemptId;
+    setSummaryLoading(true);
+    setSummaryError(null);
+    getAttempt(attemptId)
+      .then((attempt) => {
+        setSummary({
+          total: attempt.total_count,
+          correct: attempt.correct_count,
+          percent: attempt.score_percent,
+          timeUsedSec: attempt.time_spent_seconds ?? undefined,
+          timeLimitSec: attempt.time_limit_seconds ?? undefined
+        });
+        setAttemptMode(attempt.mode);
+        setAttemptReady(true);
+      })
+      .catch((err) => {
+        setSummaryError(err instanceof Error ? err.message : "Failed to load summary");
+      })
+      .finally(() => setSummaryLoading(false));
+  }, [attemptId, state?.summary, status]);
+
+  // AI review loads only when user clicks the button.
+
+  useEffect(() => {
+    if (createAttemptOnceRef.current) return;
+    if (!state) return;
+    if (!effectiveSummary) return;
+    if (!settings) return;
+    if (status !== "authed") return;
+    if (attemptId && state.attempt_id && attemptId !== state.attempt_id) return;
+    if (attemptId && !state.attempt_id && state.quiz_id && attemptId !== state.quiz_id) return;
+    if (!attemptPayload) return;
+    if (params.attemptId) return;
+
+    const storageKey = state.quiz_id
+      ? `attempt_saved_${state.quiz_id}`
+      : attemptId
+        ? `attempt_saved_${attemptId}`
+        : "attempt_saved_unknown";
+    if (localStorage.getItem(storageKey)) return;
+
+    createAttemptOnceRef.current = true;
 
     createAttempt(attemptPayload)
-      .then(() => {
+      .then((createdAttempt) => {
         localStorage.setItem(storageKey, "1");
+        setServerAttemptId(createdAttempt.id);
+        setAttemptReady(true);
+        if (attemptId !== createdAttempt.id) {
+          window.history.replaceState(null, "", `/results/${createdAttempt.id}`);
+        }
       })
       .catch(() => {
         localStorage.removeItem(storageKey);
+        createAttemptOnceRef.current = false;
       });
-  }, [answers, attemptId, isPractice, practiceResults, questions, settings, state, status, summary]);
+  }, [attemptId, attemptPayload, params.attemptId, settings, state, status, effectiveSummary]);
 
   const breakdown = useMemo(() => {
     const byType: Record<string, { correct: number; total: number }> = {};
@@ -217,7 +313,8 @@ export default function Results() {
   const showAuthLoading = status === "loading";
   const showGuest = status === "guest";
   const showNoAttempt = !attemptId && !state;
-  const showSummaryLoading = !summary && !showNoAttempt && !showAuthLoading && !showGuest;
+  const showSummaryLoading = !effectiveSummary && !showNoAttempt && !showAuthLoading && !showGuest;
+  const canLoadAiReview = status === "authed";
 
   if (showAuthLoading) {
     return (
@@ -359,6 +456,113 @@ export default function Results() {
           />
         </div>
       )}
+
+      {/* AI Review */}
+      {canLoadAiReview ? (
+        <Card variant="elevated" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-white">AI Review</h2>
+              <p className="text-sm text-slate-400">
+                Personalized feedback based on this attempt
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleAiReview}
+              disabled={!attemptId || aiReviewLoading || creatingAttempt}
+            >
+              {aiReview ? "Refresh" : "Generate AI Review"}
+            </Button>
+          </div>
+
+          {aiReviewLoading ? (
+            <div className="space-y-3">
+              <div className="h-4 w-1/2 animate-pulse rounded bg-white/10" />
+              <div className="h-24 w-full animate-pulse rounded-xl bg-white/[0.03]" />
+              <div className="h-16 w-full animate-pulse rounded-xl bg-white/[0.03]" />
+            </div>
+          ) : aiReviewError ? (
+            <div className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-4 text-sm text-rose-200">
+              {aiReviewError}
+            </div>
+          ) : aiReview?.status === "pending" ? (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-slate-400">
+              AI review is pending. Click “Generate AI Review” to create it.
+            </div>
+          ) : aiReview ? (
+            <div className="space-y-5">
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Summary</p>
+                <p className="mt-2 text-sm text-slate-200">{aiReview.summary ?? ""}</p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Strengths</p>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-200">
+                    {(aiReview.strengths ?? []).map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Weaknesses</p>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-200">
+                    {(aiReview.weaknesses ?? []).map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Focus Topics</p>
+                <div className="mt-3 space-y-2">
+                  {(aiReview.focus_topics ?? []).map((item) => (
+                    <div key={`${item.topic}-${item.priority}`} className="text-sm text-slate-200">
+                      <span className="font-semibold">{item.topic}</span>
+                      <span className="ml-2 text-xs uppercase text-slate-400">{item.priority}</span>
+                      <p className="text-xs text-slate-400">{item.why}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Study Plan</p>
+                <div className="mt-3 space-y-3">
+                  {(aiReview.study_plan ?? []).map((day) => (
+                    <div key={day.day} className="text-sm text-slate-200">
+                      <p className="font-semibold">Day {day.day}</p>
+                      <ul className="mt-1 space-y-1 text-xs text-slate-400">
+                        {day.tasks.map((task) => (
+                          <li key={task}>• {task}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Next Quiz Suggestion</p>
+                <p className="mt-2 text-sm text-slate-200">
+                  Topics: {aiReview.next_quiz_suggestion?.topics.join(", ") || "—"}
+                </p>
+                <p className="text-sm text-slate-400">
+                  Difficulty: {aiReview.next_quiz_suggestion?.difficulty || "—"} · Size: {aiReview.next_quiz_suggestion?.size ?? 0}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-slate-400">
+              Click “Generate AI Review” to get personalized feedback.
+            </div>
+          )}
+        </Card>
+      ) : null}
 
       {/* Breakdown by type */}
       {isPractice && hasDetails && Object.keys(breakdown).length > 0 ? (

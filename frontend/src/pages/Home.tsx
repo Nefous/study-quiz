@@ -68,7 +68,6 @@ export default function Home() {
       navigate("/login?returnUrl=%2F");
       return;
     }
-    const attemptId = crypto.randomUUID();
     const params = new URLSearchParams({
       difficulty,
       mode,
@@ -80,11 +79,7 @@ export default function Home() {
     } else {
       params.set("topics", selectedTopics.join(","));
     }
-    navigate(`/quiz?${params.toString()}`, {
-      state: {
-        attemptId
-      }
-    });
+    navigate(`/quiz?${params.toString()}`);
   };
 
   useEffect(() => {

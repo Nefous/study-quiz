@@ -57,9 +57,9 @@ export default function Quiz() {
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
-  const [attemptId, setAttemptId] = useState<string>(() => {
+  const [attemptId, setAttemptId] = useState<string | null>(() => {
     const state = location.state as { attemptId?: string } | null;
-    return state?.attemptId ?? crypto.randomUUID();
+    return state?.attemptId ?? null;
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +141,10 @@ export default function Quiz() {
     }`;
   }, [settings]);
 
-  const timerStorageKey = useMemo(() => `${TIMER_PREFIX}:${attemptId}`, [attemptId]);
+  const timerStorageKey = useMemo(() => {
+    const key = attemptId ?? quiz?.quiz_id ?? "unknown";
+    return `${TIMER_PREFIX}:${key}`;
+  }, [attemptId, quiz?.quiz_id]);
 
   useEffect(() => {
     if (!settings) {
@@ -302,7 +305,7 @@ export default function Quiz() {
     const payload = {
       settings,
       quiz_id: quiz.quiz_id,
-      attempt_id: attemptId,
+      attempt_id: attemptId ?? undefined,
       questions: quiz.questions,
       answers,
       mode: settings.mode,
@@ -486,7 +489,7 @@ export default function Quiz() {
     }
 
     const payload: { user_answer?: string; level: number; attempt_id?: string } = {
-      attempt_id: attemptId,
+      attempt_id: attemptId ?? undefined,
       level: hintLevel
     };
 
