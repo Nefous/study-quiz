@@ -3,8 +3,9 @@
 QuizStudy is a full-stack web application for Python interview preparation.  
 It allows users to take quizzes on key topics such as **Python Core**, **Big O notation**, **Algorithms**, and **Data Structures**,  progress tracking, and detailed performance analytics enhanced with AI-powered hints and AI-driven review feedback.
 
-<img src="frontend/src/assets/logo.png" alt="QuizStudy Logo" width="120" />
-
+<p align="center" >
+    <img src="frontend/src/assets/logo.png" alt="QuizStudy Logo" width="120" />
+</p>
 
 ## ✨ Features
 
