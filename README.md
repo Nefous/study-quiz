@@ -63,9 +63,6 @@ It allows users to take quizzes on key topics such as **Python Core**, **Big O n
 - **React + TypeScript**
 - **Vite**
 - **Tailwind CSS**
-- **ESLint**
-- **Lucide React**
-
 ### Containerization
 - **Docker**
 - **Docker Compose**
