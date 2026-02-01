@@ -29,6 +29,8 @@ class QuizAttempt(Base):
     time_limit_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     time_spent_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     timed_out: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    ai_review_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    ai_review_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = Field(default="openai/gpt-oss-120b")
     GROQ_TEMPERATURE: float = Field(default=0.4)
     GROQ_HINT_MAX_TOKENS: int = Field(default=180)
+    GROQ_REVIEW_TEMPERATURE: float = Field(default=0.4)
+    GROQ_REVIEW_MAX_TOKENS: int = Field(default=800)
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[3] / ".env",

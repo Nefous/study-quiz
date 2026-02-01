@@ -59,3 +59,32 @@ class AttemptStats(BaseModel):
     best_score_percent: int
     last_attempt_at: datetime | None
     by_topic: list[AttemptTopicStats]
+
+
+class AiReviewFocusTopic(BaseModel):
+    topic: str
+    why: str
+    priority: str
+
+
+class AiReviewStudyPlanItem(BaseModel):
+    day: int
+    tasks: list[str]
+
+
+class AiReviewNextQuizSuggestion(BaseModel):
+    topics: list[str]
+    difficulty: str
+    size: int
+
+
+class AiReviewResponse(BaseModel):
+    status: str | None = None
+    raw: str | None = None
+    summary: str | None = None
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    focus_topics: list[AiReviewFocusTopic] = []
+    study_plan: list[AiReviewStudyPlanItem] = []
+    next_quiz_suggestion: AiReviewNextQuizSuggestion | None = None
+    ai_review: dict | None = None

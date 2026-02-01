@@ -1,13 +1,23 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
+from app.core.config import get_settings
 from app.db.session import get_session
+from app.integrations.ai_review_chain import generate_ai_review
+from app.models.hint_usage import HintUsage
 from app.repositories.quiz_attempt_repo import QuizAttemptRepository
 from app.repositories.question_repo import QuestionRepository
-from app.schemas.attempts import AttemptCreate, AttemptOut, AttemptStats, AttemptTopicStats
+from app.schemas.attempts import (
+    AiReviewResponse,
+    AttemptCreate,
+    AttemptOut,
+    AttemptStats,
+    AttemptTopicStats,
+)
 from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/attempts", tags=["attempts"])
@@ -36,6 +46,31 @@ def _to_out(attempt) -> AttemptOut:
 
 def _normalize(value: str) -> str:
     return value.replace("\r\n", "\n").strip()
+
+
+def _format_question_block(
+    question,
+    answer: dict,
+    hint_level: int | None,
+    hint_penalty: int | None,
+) -> str:
+    choices_text = ""
+    if question.choices:
+        choices_text = "\n".join(f"{k}) {v}" for k, v in question.choices.items())
+    return "\n".join(
+        [
+            f"Question: {question.prompt}",
+            f"Topic: {question.topic}",
+            f"Difficulty: {question.difficulty}",
+            f"Type: {question.type}",
+            f"Choices: {choices_text}" if choices_text else "Choices: (none)",
+            f"Correct Answer: {question.correct_answer}",
+            f"User Answer: {answer.get('user_answer', '')}",
+            f"Is Correct: {answer.get('is_correct', False)}",
+            f"Hint Level: {hint_level or 0}",
+            f"Hint Penalty: {hint_penalty or 0}%",
+        ]
+    )
 
 
 @router.post("", response_model=AttemptOut)
@@ -124,6 +159,104 @@ async def get_attempt_stats(
         last_attempt_at=stats["last_attempt_at"],
         by_topic=[AttemptTopicStats(**item) for item in stats["by_topic"]],
     )
+
+
+@router.get("/{attempt_id}/ai-review", response_model=AiReviewResponse)
+async def get_attempt_ai_review(
+    attempt_id: UUID,
+    generate: bool = Query(default=False),
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> AiReviewResponse:
+    settings = get_settings()
+    if not settings.GROQ_API_KEY:
+        raise HTTPException(status_code=503, detail="AI review not configured")
+
+    repo = QuizAttemptRepository(session)
+    attempt = await repo.get_by_id(attempt_id)
+    if not attempt or attempt.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+
+    if attempt.ai_review_json:
+        return AiReviewResponse(status="ready", **attempt.ai_review_json)
+
+    if not generate:
+        return AiReviewResponse(status="pending", ai_review=None)
+
+    answers = attempt.answers or []
+    question_ids: list[UUID] = []
+    for item in answers:
+        try:
+            question_ids.append(UUID(str(item.get("question_id"))))
+        except Exception:
+            continue
+
+    question_repo = QuestionRepository(session)
+    questions = await question_repo.get_by_ids(question_ids)
+    question_map = {str(q.id): q for q in questions}
+
+    hint_stmt = (
+        select(
+            HintUsage.question_id,
+            func.sum(HintUsage.penalty_points),
+            func.max(HintUsage.level),
+        )
+        .where(HintUsage.attempt_id == attempt_id)
+        .group_by(HintUsage.question_id)
+    )
+    hint_result = await session.execute(hint_stmt)
+    hint_map = {
+        str(row[0]): {"penalty": int(row[1] or 0), "level": int(row[2] or 0)}
+        for row in hint_result.all()
+    }
+
+    incorrect_blocks: list[str] = []
+    correct_blocks: list[str] = []
+    incorrect_count = 0
+    correct_count = 0
+
+    for item in answers:
+        question = question_map.get(str(item.get("question_id")))
+        if not question:
+            continue
+        hint_info = hint_map.get(str(question.id), {})
+        block = _format_question_block(
+            question,
+            item,
+            hint_info.get("level"),
+            hint_info.get("penalty"),
+        )
+        if item.get("is_correct"):
+            if len(correct_blocks) < 2:
+                correct_blocks.append(block)
+            correct_count += 1
+        else:
+            incorrect_blocks.append(block)
+            incorrect_count += 1
+
+    payload = {
+        "total": attempt.total_count,
+        "correct": correct_count,
+        "incorrect": incorrect_count,
+        "mode": attempt.mode,
+        "incorrect_block": "\n\n".join(incorrect_blocks[:10]) or "None",
+        "correct_block": "\n\n".join(correct_blocks) or "None",
+    }
+
+    review_json = await generate_ai_review(payload)
+    review_json = {
+        "summary": "",
+        "strengths": [],
+        "weaknesses": [],
+        "focus_topics": [],
+        "study_plan": [],
+        "next_quiz_suggestion": {"topics": [], "difficulty": "", "size": 10},
+        **(review_json or {}),
+    }
+    if review_json.get("status") == "error":
+        return AiReviewResponse(**review_json)
+    await repo.set_ai_review(attempt_id, review_json)
+    return AiReviewResponse(status="ready", **review_json)
 
 
 @router.get("/{attempt_id}", response_model=AttemptOut)

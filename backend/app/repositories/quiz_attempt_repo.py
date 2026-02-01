@@ -40,6 +40,16 @@ class QuizAttemptRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def set_ai_review(self, attempt_id, review_json: dict) -> QuizAttempt | None:
+        attempt = await self.get_by_id(attempt_id)
+        if not attempt:
+            return None
+        attempt.ai_review_json = review_json
+        attempt.ai_review_created_at = func.now()
+        await self.session.commit()
+        await self.session.refresh(attempt)
+        return attempt
+
     async def stats(
         self,
         user_id,
