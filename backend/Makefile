@@ -1,3 +1,3 @@
 lint:
-	ruff check app
-	mypy app
+	uv run ruff check app
+	uv run mypy app

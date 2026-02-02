@@ -248,7 +248,7 @@ async def get_attempt_ai_review(
             break
         questions_compact.append(
             {
-                "question_ref": f"Q{len(questions_compact) + 1}",
+                "question_ref": f"Question(№{len(questions_compact) + 1})",
                 **entry,
             }
         )
