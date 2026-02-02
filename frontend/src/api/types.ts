@@ -109,15 +109,33 @@ export type AiReviewNextQuizSuggestion = {
   size: number;
 };
 
+export type AiReviewTopMistake = {
+  question_ref: string;
+  your_answer: string;
+  correct_answer: string;
+  why: string;
+};
+
+export type AiReviewNextQuiz = {
+  topic: string;
+  difficulty: string;
+  size: number;
+};
+
 export type AiReviewResponse = {
   status?: "ready" | "pending" | "error" | string;
   raw?: string | null;
+  headline?: string | null;
+  score_line?: string | null;
+  top_mistakes?: AiReviewTopMistake[];
   summary?: string | null;
   strengths?: string[];
   weaknesses?: string[];
+  micro_drills?: string[];
   focus_topics?: AiReviewFocusTopic[];
   study_plan?: AiReviewStudyPlanItem[];
   next_quiz_suggestion?: AiReviewNextQuizSuggestion | null;
+  next_quiz?: AiReviewNextQuiz | null;
   ai_review?: Record<string, unknown> | null;
 };
 

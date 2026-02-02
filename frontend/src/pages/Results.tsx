@@ -494,8 +494,27 @@ export default function Results() {
           ) : aiReview ? (
             <div className="space-y-5">
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Summary</p>
-                <p className="mt-2 text-sm text-slate-200">{aiReview.summary ?? ""}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Headline</p>
+                <p className="mt-2 text-sm text-slate-200">
+                  {aiReview.headline ?? aiReview.summary ?? ""}
+                </p>
+                {aiReview.score_line ? (
+                  <p className="mt-2 text-xs text-slate-400">{aiReview.score_line}</p>
+                ) : null}
+              </div>
+
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Top Mistakes</p>
+                <div className="mt-3 space-y-3">
+                  {(aiReview.top_mistakes ?? []).map((item, index) => (
+                    <div key={`${item.question_ref}-${index}`} className="text-sm text-slate-200">
+                      <p className="font-semibold">{item.question_ref || `Mistake ${index + 1}`}</p>
+                      <p className="text-xs text-slate-400">Your answer: {item.your_answer || "—"}</p>
+                      <p className="text-xs text-slate-400">Correct answer: {item.correct_answer || "—"}</p>
+                      <p className="mt-1 text-xs text-slate-400">{item.why || ""}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -508,9 +527,9 @@ export default function Results() {
                   </ul>
                 </div>
                 <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Weaknesses</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Micro Drills</p>
                   <ul className="mt-2 space-y-1 text-sm text-slate-200">
-                    {(aiReview.weaknesses ?? []).map((item) => (
+                    {(aiReview.micro_drills ?? []).map((item) => (
                       <li key={item}>• {item}</li>
                     ))}
                   </ul>
@@ -518,41 +537,12 @@ export default function Results() {
               </div>
 
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Focus Topics</p>
-                <div className="mt-3 space-y-2">
-                  {(aiReview.focus_topics ?? []).map((item) => (
-                    <div key={`${item.topic}-${item.priority}`} className="text-sm text-slate-200">
-                      <span className="font-semibold">{item.topic}</span>
-                      <span className="ml-2 text-xs uppercase text-slate-400">{item.priority}</span>
-                      <p className="text-xs text-slate-400">{item.why}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Study Plan</p>
-                <div className="mt-3 space-y-3">
-                  {(aiReview.study_plan ?? []).map((day) => (
-                    <div key={day.day} className="text-sm text-slate-200">
-                      <p className="font-semibold">Day {day.day}</p>
-                      <ul className="mt-1 space-y-1 text-xs text-slate-400">
-                        {day.tasks.map((task) => (
-                          <li key={task}>• {task}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Next Quiz Suggestion</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Next Quiz</p>
                 <p className="mt-2 text-sm text-slate-200">
-                  Topics: {aiReview.next_quiz_suggestion?.topics.join(", ") || "—"}
+                  Topic: {aiReview.next_quiz?.topic || aiReview.next_quiz_suggestion?.topics.join(", ") || "—"}
                 </p>
                 <p className="text-sm text-slate-400">
-                  Difficulty: {aiReview.next_quiz_suggestion?.difficulty || "—"} · Size: {aiReview.next_quiz_suggestion?.size ?? 0}
+                  Difficulty: {aiReview.next_quiz?.difficulty || aiReview.next_quiz_suggestion?.difficulty || "—"} · Size: {aiReview.next_quiz?.size ?? aiReview.next_quiz_suggestion?.size ?? 0}
                 </p>
               </div>
             </div>
