@@ -78,13 +78,31 @@ class AiReviewNextQuizSuggestion(BaseModel):
     size: int
 
 
+class AiReviewTopMistake(BaseModel):
+    question_ref: str
+    your_answer: str
+    correct_answer: str
+    why: str
+
+
+class AiReviewNextQuiz(BaseModel):
+    topic: str
+    difficulty: str
+    size: int
+
+
 class AiReviewResponse(BaseModel):
     status: str | None = None
     raw: str | None = None
+    headline: str | None = None
+    score_line: str | None = None
+    top_mistakes: list[AiReviewTopMistake] = []
     summary: str | None = None
     strengths: list[str] = []
     weaknesses: list[str] = []
+    micro_drills: list[str] = []
     focus_topics: list[AiReviewFocusTopic] = []
     study_plan: list[AiReviewStudyPlanItem] = []
     next_quiz_suggestion: AiReviewNextQuizSuggestion | None = None
+    next_quiz: AiReviewNextQuiz | None = None
     ai_review: dict | None = None

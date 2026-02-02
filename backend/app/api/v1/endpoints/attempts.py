@@ -1,14 +1,14 @@
 from datetime import datetime
+import json
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.integrations.ai_review_chain import generate_ai_review
-from app.models.hint_usage import HintUsage
+from app.integrations.ai_review_chain import generate_ai_review, normalize_next_quiz_difficulty
 from app.repositories.quiz_attempt_repo import QuizAttemptRepository
 from app.repositories.question_repo import QuestionRepository
 from app.schemas.attempts import (
@@ -71,6 +71,31 @@ def _format_question_block(
             f"Hint Penalty: {hint_penalty or 0}%",
         ]
     )
+
+
+def _compact_text(value: str, max_len: int = 160) -> str:
+    text = " ".join(str(value or "").strip().split())
+    if len(text) <= max_len:
+        return text
+    return f"{text[: max_len - 3]}..."
+
+
+def _apply_next_quiz_guard(review_json: dict[str, Any]) -> dict[str, Any]:
+    next_quiz = review_json.get("next_quiz") or {}
+    normalized_difficulty = normalize_next_quiz_difficulty(next_quiz.get("difficulty"))
+    review_json["next_quiz"] = {
+        "topic": next_quiz.get("topic") or "",
+        "difficulty": normalized_difficulty,
+        "size": int(next_quiz.get("size") or 10),
+    }
+    next_quiz_suggestion = review_json.get("next_quiz_suggestion") or {}
+    review_json["next_quiz_suggestion"] = {
+        "topics": next_quiz_suggestion.get("topics")
+        or [review_json["next_quiz"]["topic"] or ""],
+        "difficulty": normalized_difficulty,
+        "size": int(next_quiz_suggestion.get("size") or review_json["next_quiz"]["size"]),
+    }
+    return review_json
 
 
 @router.post("", response_model=AttemptOut)
@@ -178,10 +203,11 @@ async def get_attempt_ai_review(
         raise HTTPException(status_code=404, detail="Attempt not found")
 
     if attempt.ai_review_json:
-        return AiReviewResponse(status="ready", **attempt.ai_review_json)
+        guarded = _apply_next_quiz_guard({**attempt.ai_review_json})
+        return AiReviewResponse(status="ready", **guarded)
 
     if not generate:
-        return AiReviewResponse(status="pending", ai_review=None)
+        return AiReviewResponse(status="not_generated", ai_review=None)
 
     answers = attempt.answers or []
     question_ids: list[UUID] = []
@@ -195,64 +221,65 @@ async def get_attempt_ai_review(
     questions = await question_repo.get_by_ids(question_ids)
     question_map = {str(q.id): q for q in questions}
 
-    hint_stmt = (
-        select(
-            HintUsage.question_id,
-            func.sum(HintUsage.penalty_points),
-            func.max(HintUsage.level),
-        )
-        .where(HintUsage.attempt_id == attempt_id)
-        .group_by(HintUsage.question_id)
-    )
-    hint_result = await session.execute(hint_stmt)
-    hint_map = {
-        str(row[0]): {"penalty": int(row[1] or 0), "level": int(row[2] or 0)}
-        for row in hint_result.all()
-    }
-
-    incorrect_blocks: list[str] = []
-    correct_blocks: list[str] = []
     incorrect_count = 0
     correct_count = 0
+    incorrect_items: list[dict] = []
+    correct_items: list[dict] = []
 
     for item in answers:
         question = question_map.get(str(item.get("question_id")))
         if not question:
             continue
-        hint_info = hint_map.get(str(question.id), {})
-        block = _format_question_block(
-            question,
-            item,
-            hint_info.get("level"),
-            hint_info.get("penalty"),
-        )
+        entry = {
+            "question": _compact_text(question.prompt, 160),
+            "correct_answer": _compact_text(question.correct_answer, 120),
+            "your_answer": _compact_text(item.get("user_answer", ""), 120),
+        }
         if item.get("is_correct"):
-            if len(correct_blocks) < 2:
-                correct_blocks.append(block)
             correct_count += 1
+            correct_items.append(entry)
         else:
-            incorrect_blocks.append(block)
             incorrect_count += 1
+            incorrect_items.append(entry)
+
+    questions_compact: list[dict] = []
+    for entry in (incorrect_items + correct_items):
+        if len(questions_compact) >= 12:
+            break
+        questions_compact.append(
+            {
+                "question_ref": f"Q{len(questions_compact) + 1}",
+                **entry,
+            }
+        )
 
     payload = {
         "total": attempt.total_count,
         "correct": correct_count,
         "incorrect": incorrect_count,
+        "percent": attempt.score_percent,
         "mode": attempt.mode,
-        "incorrect_block": "\n\n".join(incorrect_blocks[:10]) or "None",
-        "correct_block": "\n\n".join(correct_blocks) or "None",
+        "questions_compact_json": json.dumps(questions_compact, ensure_ascii=False),
     }
 
     review_json = await generate_ai_review(payload)
     review_json = {
-        "summary": "",
+        "headline": "",
+        "score_line": "",
+        "top_mistakes": [],
         "strengths": [],
-        "weaknesses": [],
-        "focus_topics": [],
-        "study_plan": [],
-        "next_quiz_suggestion": {"topics": [], "difficulty": "", "size": 10},
+        "micro_drills": [],
+        "next_quiz": {"topic": "", "difficulty": "", "size": 10},
         **(review_json or {}),
     }
+    top_mistakes = review_json.get("top_mistakes") or []
+    review_json["summary"] = review_json.get("headline") or ""
+    review_json["weaknesses"] = [
+        f"{item.get('question_ref')}: {item.get('why')}".strip()
+        for item in top_mistakes
+        if isinstance(item, dict) and (item.get("question_ref") or item.get("why"))
+    ]
+    review_json = _apply_next_quiz_guard(review_json)
     if review_json.get("status") == "error":
         return AiReviewResponse(**review_json)
     await repo.set_ai_review(attempt_id, review_json)
