@@ -64,6 +64,7 @@ export default function Results() {
   const params = useParams();
   const createAttemptOnceRef = useRef(false);
   const lastFetchedAttemptIdRef = useRef<string | null>(null);
+  const lastFetchedAiReviewIdRef = useRef<string | null>(null);
   const { status } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [summary, setSummary] = useState<QuizSummary | null>(null);
@@ -88,6 +89,8 @@ export default function Results() {
   const isPractice = mode === "practice";
   const isExam = mode === "exam";
   const hasDetails = Boolean(state && settings && questions.length > 0);
+  const aiReviewStatus = aiReview?.status;
+  const aiReviewNotGenerated = aiReviewStatus === "not_generated" || aiReviewStatus === "pending";
 
   const immediateSummary = useMemo<QuizSummary | null>(() => {
     if (state?.summary) return state.summary;
@@ -191,6 +194,7 @@ export default function Results() {
   const handleAiReview = async () => {
     const id = await ensureServerAttempt();
     if (!id) return;
+    lastFetchedAiReviewIdRef.current = id;
     setAiReviewLoading(true);
     setAiReviewError(null);
     try {
@@ -207,6 +211,7 @@ export default function Results() {
     setAiReview(null);
     setAiReviewError(null);
     setAttemptReady(false);
+    lastFetchedAiReviewIdRef.current = null;
   }, [attemptId]);
 
   useEffect(() => {
@@ -238,7 +243,20 @@ export default function Results() {
       .finally(() => setSummaryLoading(false));
   }, [attemptId, state?.summary, status]);
 
-  // AI review loads only when user clicks the button.
+  useEffect(() => {
+    if (status !== "authed") return;
+    if (!attemptId) return;
+    if (lastFetchedAiReviewIdRef.current === attemptId) return;
+    lastFetchedAiReviewIdRef.current = attemptId;
+    setAiReviewLoading(true);
+    setAiReviewError(null);
+    getAttemptAiReview(attemptId, false)
+      .then((data) => setAiReview(data))
+      .catch((err) => {
+        setAiReviewError(err instanceof Error ? err.message : "Failed to load AI review");
+      })
+      .finally(() => setAiReviewLoading(false));
+  }, [attemptId, status]);
 
   useEffect(() => {
     if (createAttemptOnceRef.current) return;
@@ -315,6 +333,7 @@ export default function Results() {
   const showNoAttempt = !attemptId && !state;
   const showSummaryLoading = !effectiveSummary && !showNoAttempt && !showAuthLoading && !showGuest;
   const canLoadAiReview = status === "authed";
+  const showGenerateButton = canLoadAiReview && aiReviewNotGenerated && !aiReviewLoading;
 
   if (showAuthLoading) {
     return (
@@ -467,14 +486,16 @@ export default function Results() {
                 Personalized feedback based on this attempt
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleAiReview}
-              disabled={!attemptId || aiReviewLoading || creatingAttempt}
-            >
-              {aiReview ? "Refresh" : "Generate AI Review"}
-            </Button>
+            {showGenerateButton ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleAiReview}
+                disabled={!attemptId || aiReviewLoading || creatingAttempt}
+              >
+                Generate AI Review
+              </Button>
+            ) : null}
           </div>
 
           {aiReviewLoading ? (
@@ -487,9 +508,9 @@ export default function Results() {
             <div className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-4 text-sm text-rose-200">
               {aiReviewError}
             </div>
-          ) : aiReview?.status === "pending" ? (
+          ) : aiReviewNotGenerated ? (
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-slate-400">
-              AI review is pending. Click “Generate AI Review” to create it.
+              AI review hasn’t been generated yet.
             </div>
           ) : aiReview ? (
             <div className="space-y-5">

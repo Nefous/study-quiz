@@ -123,7 +123,7 @@ export type AiReviewNextQuiz = {
 };
 
 export type AiReviewResponse = {
-  status?: "ready" | "pending" | "error" | string;
+  status?: "ready" | "not_generated" | "error" | string;
   raw?: string | null;
   headline?: string | null;
   score_line?: string | null;
