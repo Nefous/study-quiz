@@ -53,6 +53,11 @@ class AttemptTopicStats(BaseModel):
     avg_score_percent: int
 
 
+class AttemptRecentScore(BaseModel):
+    score_percent: int
+    created_at: datetime
+
+
 class AttemptStats(BaseModel):
     total_attempts: int
     avg_score_percent: int
@@ -62,6 +67,8 @@ class AttemptStats(BaseModel):
     current_streak_days: int
     strongest_topic: str | None = None
     weakest_topic: str | None = None
+    recent_scores: list[int]
+    recent_attempts: list[AttemptRecentScore]
 
 
 class AiReviewFocusTopic(BaseModel):

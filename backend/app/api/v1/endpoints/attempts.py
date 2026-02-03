@@ -186,6 +186,8 @@ async def get_attempt_stats(
         current_streak_days=stats["current_streak_days"],
         strongest_topic=stats["strongest_topic"],
         weakest_topic=stats["weakest_topic"],
+        recent_scores=stats["recent_scores"],
+        recent_attempts=stats["recent_attempts"],
     )
 
 

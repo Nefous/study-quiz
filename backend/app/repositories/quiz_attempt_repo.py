@@ -121,6 +121,21 @@ class QuizAttemptRepository:
 
         by_topic.sort(key=lambda item: item["attempts"], reverse=True)
 
+        recent_stmt = (
+            select(QuizAttempt.score_percent, QuizAttempt.created_at)
+            .where(*filters)
+            .order_by(desc(QuizAttempt.created_at), desc(QuizAttempt.id))
+            .limit(20)
+        )
+        recent_result = await self.session.execute(recent_stmt)
+        recent_rows = recent_result.all()
+        recent_attempts = [
+            {"score_percent": int(score or 0), "created_at": created_at}
+            for score, created_at in recent_rows
+        ]
+        recent_attempts.reverse()
+        recent_scores = [item["score_percent"] for item in recent_attempts]
+
         streak_stmt = (
             select(func.date(QuizAttempt.created_at))
             .where(*filters)
@@ -159,4 +174,6 @@ class QuizAttemptRepository:
             "current_streak_days": current_streak,
             "strongest_topic": strongest_topic,
             "weakest_topic": weakest_topic,
+            "recent_scores": recent_scores,
+            "recent_attempts": recent_attempts,
         }
