@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -119,10 +121,42 @@ class QuizAttemptRepository:
 
         by_topic.sort(key=lambda item: item["attempts"], reverse=True)
 
+        streak_stmt = (
+            select(func.date(QuizAttempt.created_at))
+            .where(*filters)
+            .distinct()
+        )
+        streak_result = await self.session.execute(streak_stmt)
+        attempt_dates = {
+            row[0]
+            for row in streak_result.all()
+            if row and row[0] is not None
+        }
+        today = datetime.utcnow().date()
+        current_streak = 0
+        cursor = today
+        while cursor in attempt_dates:
+            current_streak += 1
+            cursor = cursor - timedelta(days=1)
+
+        eligible_topics = [item for item in by_topic if item["attempts"] >= 5]
+        strongest_topic = None
+        weakest_topic = None
+        if eligible_topics:
+            strongest_topic = max(
+                eligible_topics, key=lambda item: item["avg_score_percent"]
+            )["topic"]
+            weakest_topic = min(
+                eligible_topics, key=lambda item: item["avg_score_percent"]
+            )["topic"]
+
         return {
             "total_attempts": int(total_attempts or 0),
             "avg_score_percent": int(round(avg_score or 0)),
             "best_score_percent": int(best_score or 0),
             "last_attempt_at": last_attempt_at,
             "by_topic": by_topic,
+            "current_streak_days": current_streak,
+            "strongest_topic": strongest_topic,
+            "weakest_topic": weakest_topic,
         }

@@ -12,17 +12,13 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app import models  # noqa: F401
 
-# this is the Alembic Config object, which provides access to the values within
-# the .ini file in use.
+
 config = context.config
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 
 target_metadata = Base.metadata
 

@@ -59,6 +59,9 @@ class AttemptStats(BaseModel):
     best_score_percent: int
     last_attempt_at: datetime | None
     by_topic: list[AttemptTopicStats]
+    current_streak_days: int
+    strongest_topic: str | None = None
+    weakest_topic: str | None = None
 
 
 class AiReviewFocusTopic(BaseModel):

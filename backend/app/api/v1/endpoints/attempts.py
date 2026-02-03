@@ -183,6 +183,9 @@ async def get_attempt_stats(
         best_score_percent=stats["best_score_percent"],
         last_attempt_at=stats["last_attempt_at"],
         by_topic=[AttemptTopicStats(**item) for item in stats["by_topic"]],
+        current_streak_days=stats["current_streak_days"],
+        strongest_topic=stats["strongest_topic"],
+        weakest_topic=stats["weakest_topic"],
     )
 
 
