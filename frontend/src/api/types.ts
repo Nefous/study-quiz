@@ -76,6 +76,11 @@ export type AttemptTopicStats = {
   avg_score_percent: number;
 };
 
+export type AttemptRecentScore = {
+  score_percent: number;
+  created_at: string;
+};
+
 export type AttemptStats = {
   total_attempts: number;
   avg_score_percent: number;
@@ -85,6 +90,8 @@ export type AttemptStats = {
   current_streak_days?: number;
   strongest_topic?: string | null;
   weakest_topic?: string | null;
+  recent_scores?: number[];
+  recent_attempts?: AttemptRecentScore[];
 };
 
 export type QuizSummary = {
@@ -146,6 +153,7 @@ export type User = {
   id: string;
   email: string;
   created_at: string;
+  first_name?: string | null;
 };
 
 export type LoginRequest = {

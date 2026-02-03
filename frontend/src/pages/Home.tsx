@@ -22,7 +22,7 @@ import { useAuth } from "../context/AuthContext";
 
 const STORAGE_KEY = "quizSetup";
 const FALLBACK_DEFAULT_SIZE = 10;
-const FALLBACK_MAX_SIZE = 50;
+const FALLBACK_MAX_SIZE = 15;
 const FALLBACK_TOPICS: Topic[] = [
   "python_core",
   "big_o",
