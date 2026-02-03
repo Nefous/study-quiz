@@ -81,6 +81,26 @@ export default function Profile() {
               <p className="text-xs text-slate-400">Average score</p>
               <p className="text-lg font-semibold text-white">{stats.avg_score_percent}%</p>
             </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <p className="text-xs text-slate-400">🔥 Current streak (days)</p>
+              <p className="text-lg font-semibold text-white">
+                {stats.total_attempts > 0
+                  ? stats.current_streak_days ?? "—"
+                  : "—"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <p className="text-xs text-slate-400">🧠 Strongest topic</p>
+              <p className="text-lg font-semibold text-white">
+                {stats.strongest_topic ?? "—"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <p className="text-xs text-slate-400">🎯 Weakest topic</p>
+              <p className="text-lg font-semibold text-white">
+                {stats.weakest_topic ?? "—"}
+              </p>
+            </div>
           </div>
         ) : null}
 

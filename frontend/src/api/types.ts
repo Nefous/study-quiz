@@ -82,6 +82,9 @@ export type AttemptStats = {
   best_score_percent: number;
   last_attempt_at: string | null;
   by_topic: AttemptTopicStats[];
+  current_streak_days?: number;
+  strongest_topic?: string | null;
+  weakest_topic?: string | null;
 };
 
 export type QuizSummary = {
