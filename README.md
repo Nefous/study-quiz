@@ -30,7 +30,13 @@ It allows users to take quizzes on key topics such as **Python Core**, **Big O n
 - **Intelligent Contextual Hints** powered by Groq API
   - Penalty-based system for strategic learning
   - Multiple hint levels: subtle guidance to explicit help
+  - Rate-limited to encourage thoughtful problem-solving
 - **AI Review** at the end of each quiz with personalized feedback
+  - Detailed performance analysis
+  - Strengths and weaknesses identification
+  - Study plan recommendations
+  - Micro-drills for targeted improvement
+  - Next quiz suggestions based on performance
 - **AI Coach** - personalized next quiz recommendations based on performance history
 - **Next Quiz Recommendation Chain** for adaptive learning paths
 
@@ -39,15 +45,52 @@ It allows users to take quizzes on key topics such as **Python Core**, **Big O n
 - OAuth providers: Google, GitHub
 - JWT-based secure authorization
 
-### 📊 Performance Tracking
-- Quiz attempt history
+### 📊 Performance Tracking & Analytics
+- Comprehensive quiz attempt history
+- Individual question answer tracking
 - Score breakdown by topic and question type
-- Progress and accuracy analytics
-- Detailed performance metrics and trends
+- Progress and accuracy analytics with trends
+- Detailed performance metrics and streaks
+- Strongest and weakest topic identification
+- Recent performance scores visualization
 
-### 👤 User Management
-- Personal progress statistics
-- Profile creation date tracking
+### ⭐ Question Management
+- Question favoriting/bookmarking system
+- Favorite questions filtering and review
+- Question difficulty and topic categorization
+
+### 🔄 Learning Features
+- Repeat Mistakes - Review and retake previously incorrect questions
+- Mistakes review quizzes with targeted practice
+- Attempt types: Normal quizzes and Mistakes Review
+- Adaptive quiz generation based on performance
+
+### ⏱️ Timing & Exam Features
+- Timed quizzes with configurable time limits
+- Time tracking for each attempt
+- Timeout detection and handling
+- Practice vs Exam mode distinctions
+
+## 🧱 Tech Stack
+
+### Backend
+- **FastAPI** , **REST API**
+- **SQLAlchemy**, **Alembic**
+- **Pydantic**
+- **JWT**
+- **OAuth**: Google, GitHub
+- **Groq API**
+
+### Database
+- **PostgreSQL**
+
+### Frontend
+- **React + TypeScript**
+- **Vite**
+- **Tailwind CSS**
+### Containerization
+- **Docker**
+- **Docker Compose**
 
 ## 🧱 Tech Stack
 
