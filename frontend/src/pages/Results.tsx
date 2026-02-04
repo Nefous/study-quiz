@@ -8,10 +8,20 @@ import {
   History,
   Lightbulb,
   RefreshCw,
+  Star,
   Target,
   Trophy
 } from "lucide-react";
-import { createAttempt, difficultyLabels, getAttempt, getAttemptAiReview, topicLabels } from "../api";
+import {
+  createAttempt,
+  difficultyLabels,
+  getAttempt,
+  getAttemptAiReview,
+  listFavoriteQuestions,
+  favoriteQuestion,
+  unfavoriteQuestion,
+  topicLabels
+} from "../api";
 import type {
   AiReviewResponse,
   QuizMode,
@@ -77,6 +87,8 @@ export default function Results() {
   const [serverAttemptId, setServerAttemptId] = useState<string | null>(null);
   const [creatingAttempt, setCreatingAttempt] = useState(false);
   const [attemptReady, setAttemptReady] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [favoriteLoadingIds, setFavoriteLoadingIds] = useState<Record<string, boolean>>({});
   const state = (location.state as ResultsState | null) ?? readStoredResults();
 
   const settings = state?.settings;
@@ -244,6 +256,25 @@ export default function Results() {
   }, [attemptId, state?.summary, status]);
 
   useEffect(() => {
+    let active = true;
+    const loadFavorites = async () => {
+      try {
+        const favorites = await listFavoriteQuestions(200, 0);
+        if (!active) return;
+        setFavoriteIds(new Set(favorites.map((item) => item.id)));
+      } catch {
+        if (active) {
+          setFavoriteIds(new Set());
+        }
+      }
+    };
+    void loadFavorites();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (status !== "authed") return;
     if (!attemptId) return;
     if (lastFetchedAiReviewIdRef.current === attemptId) return;
@@ -310,6 +341,30 @@ export default function Results() {
     });
     return byType;
   }, [answers, isPractice, practiceResults, questions]);
+
+  const toggleFavorite = async (questionId: string) => {
+    if (favoriteLoadingIds[questionId]) return;
+    setFavoriteLoadingIds((prev) => ({ ...prev, [questionId]: true }));
+    const isFavorited = favoriteIds.has(questionId);
+    try {
+      if (isFavorited) {
+        await unfavoriteQuestion(questionId);
+      } else {
+        await favoriteQuestion(questionId);
+      }
+      setFavoriteIds((prev) => {
+        const next = new Set(prev);
+        if (isFavorited) {
+          next.delete(questionId);
+        } else {
+          next.add(questionId);
+        }
+        return next;
+      });
+    } finally {
+      setFavoriteLoadingIds((prev) => ({ ...prev, [questionId]: false }));
+    }
+  };
 
   const query = useMemo(() => {
     if (!settings) return null;
@@ -684,6 +739,30 @@ export default function Results() {
                       <Badge tone="neutral" className="text-xs">
                         {question.type === "mcq" ? "MCQ" : "Code"}
                       </Badge>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void toggleFavorite(question.id);
+                        }}
+                        className={cn(
+                          "rounded-full border px-2 py-1 text-xs transition",
+                          favoriteIds.has(question.id)
+                            ? "border-amber-400/40 bg-amber-400/10 text-amber-200"
+                            : "border-white/10 bg-white/[0.02] text-slate-300 hover:border-white/20"
+                        )}
+                        disabled={favoriteLoadingIds[question.id]}
+                        aria-pressed={favoriteIds.has(question.id)}
+                        aria-label={favoriteIds.has(question.id) ? "Remove favorite" : "Add favorite"}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <Star
+                            size={12}
+                            className={favoriteIds.has(question.id) ? "fill-amber-400 text-amber-300" : ""}
+                          />
+                          {favoriteIds.has(question.id) ? "Saved" : "Save"}
+                        </span>
+                      </button>
                       {isExpanded ? (
                         <ChevronUp size={16} className="text-slate-400" />
                       ) : (

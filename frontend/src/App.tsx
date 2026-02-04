@@ -3,6 +3,7 @@ import AppShell from "./components/layout/AppShell";
 import { useAuth } from "./context/AuthContext";
 import Home from "./pages/Home";
 import History from "./pages/History";
+import Favorites from "./pages/Favorites";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Quiz from "./pages/Quiz";
@@ -38,6 +39,14 @@ export default function App() {
           element={
             <RequireAuth>
               <History />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/favorites"
+          element={
+            <RequireAuth>
+              <Favorites />
             </RequireAuth>
           }
         />

@@ -9,6 +9,7 @@ import type {
   AttemptCreate,
   AttemptOut,
   AttemptStats,
+  QuizQuestion,
   NextQuizRecommendation,
   NextQuizRecommendationGenerated,
   AiReviewResponse,
@@ -77,6 +78,33 @@ export async function getAttemptAiReview(
 ): Promise<AiReviewResponse> {
   const query = generate ? "?generate=true" : "";
   return request<AiReviewResponse>(apiUrl(`/attempts/${attemptId}/ai-review${query}`));
+}
+
+export async function favoriteQuestion(questionId: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(apiUrl(`/questions/${questionId}/favorite`), {
+    method: "POST"
+  });
+}
+
+export async function unfavoriteQuestion(questionId: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(apiUrl(`/questions/${questionId}/favorite`), {
+    method: "DELETE"
+  });
+}
+
+export async function listFavoriteQuestions(
+  limit = 200,
+  offset = 0,
+  topic?: string,
+  difficulty?: string
+): Promise<QuizQuestion[]> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset)
+  });
+  if (topic) params.set("topic", topic);
+  if (difficulty) params.set("difficulty", difficulty);
+  return request<QuizQuestion[]>(apiUrl(`/questions/favorites?${params.toString()}`));
 }
 
 export async function login(payload: LoginRequest): Promise<TokenResponse> {

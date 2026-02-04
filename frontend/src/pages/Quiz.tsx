@@ -9,9 +9,19 @@ import {
   ListChecks,
   LogOut,
   Send,
-  Sparkles
+  Sparkles,
+  Star
 } from "lucide-react";
-import { generateQuiz, getHint, difficultyLabels, modeLabels, topicLabels } from "../api";
+import {
+  favoriteQuestion,
+  generateQuiz,
+  getHint,
+  listFavoriteQuestions,
+  unfavoriteQuestion,
+  difficultyLabels,
+  modeLabels,
+  topicLabels
+} from "../api";
 import type {
   Difficulty,
   QuizGenerateRequest,
@@ -78,6 +88,8 @@ export default function Quiz() {
   const [penaltyTotal, setPenaltyTotal] = useState(0);
   const [penaltyByQuestion, setPenaltyByQuestion] = useState<Record<string, number>>({});
   const [hintsUsedByQuestion, setHintsUsedByQuestion] = useState<Record<string, number>>({});
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [favoriteLoadingIds, setFavoriteLoadingIds] = useState<Record<string, boolean>>({});
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [timeLimitSeconds, setTimeLimitSeconds] = useState<number | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
@@ -151,6 +163,25 @@ export default function Quiz() {
       navigate("/");
     }
   }, [navigate, settings]);
+
+  useEffect(() => {
+    let active = true;
+    const loadFavorites = async () => {
+      try {
+        const favorites = await listFavoriteQuestions(200, 0);
+        if (!active) return;
+        setFavoriteIds(new Set(favorites.map((item) => item.id)));
+      } catch {
+        if (active) {
+          setFavoriteIds(new Set());
+        }
+      }
+    };
+    void loadFavorites();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!settings) return;
@@ -527,6 +558,30 @@ export default function Quiz() {
     }
   };
 
+  const toggleFavorite = async (questionId: string) => {
+    if (favoriteLoadingIds[questionId]) return;
+    setFavoriteLoadingIds((prev) => ({ ...prev, [questionId]: true }));
+    const isFavorited = favoriteIds.has(questionId);
+    try {
+      if (isFavorited) {
+        await unfavoriteQuestion(questionId);
+      } else {
+        await favoriteQuestion(questionId);
+      }
+      setFavoriteIds((prev) => {
+        const next = new Set(prev);
+        if (isFavorited) {
+          next.delete(questionId);
+        } else {
+          next.add(questionId);
+        }
+        return next;
+      });
+    } finally {
+      setFavoriteLoadingIds((prev) => ({ ...prev, [questionId]: false }));
+    }
+  };
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Progress header */}
@@ -593,22 +648,43 @@ export default function Quiz() {
       {/* Question card */}
       <Card variant="elevated" className="space-y-6">
         {/* Question header with badges */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={question.type === "mcq" ? "info" : "primary"}>
-            {question.type === "mcq" ? (
-              <>
-                <HelpCircle size={12} />
-                MCQ
-              </>
-            ) : (
-              <>
-                <Code2 size={12} />
-                Code Output
-              </>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={question.type === "mcq" ? "info" : "primary"}>
+              {question.type === "mcq" ? (
+                <>
+                  <HelpCircle size={12} />
+                  MCQ
+                </>
+              ) : (
+                <>
+                  <Code2 size={12} />
+                  Code Output
+                </>
+              )}
+            </Badge>
+            <Badge tone="neutral">{topicLabels[question.topic]}</Badge>
+            <Badge tone="neutral">{difficultyLabels[question.difficulty]}</Badge>
+          </div>
+          <button
+            type="button"
+            onClick={() => toggleFavorite(question.id)}
+            className={cn(
+              "flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition",
+              favoriteIds.has(question.id)
+                ? "border-amber-400/40 bg-amber-400/10 text-amber-200"
+                : "border-white/10 bg-white/[0.02] text-slate-300 hover:border-white/20"
             )}
-          </Badge>
-          <Badge tone="neutral">{topicLabels[question.topic]}</Badge>
-          <Badge tone="neutral">{difficultyLabels[question.difficulty]}</Badge>
+            disabled={favoriteLoadingIds[question.id]}
+            aria-pressed={favoriteIds.has(question.id)}
+            aria-label={favoriteIds.has(question.id) ? "Remove favorite" : "Add favorite"}
+          >
+            <Star
+              size={14}
+              className={favoriteIds.has(question.id) ? "fill-amber-400 text-amber-300" : ""}
+            />
+            {favoriteIds.has(question.id) ? "Favorited" : "Favorite"}
+          </button>
         </div>
 
         {/* Question content */}

@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Github, History, Home, UserCircle } from "lucide-react";
+import { Github, History, Home, Star, UserCircle } from "lucide-react";
 import Background from "./Background";
 import { cn } from "../ui/cn";
 import BrandLogo from "../BrandLogo";
@@ -9,7 +9,8 @@ import { useAuth } from "../../context/AuthContext";
 
 const navLinks = [
   { to: "/", label: "Home", icon: Home },
-  { to: "/history", label: "History", icon: History }
+  { to: "/history", label: "History", icon: History },
+  { to: "/favorites", label: "Favorites", icon: Star }
 ];
 
 export default function AppShell({ children }: PropsWithChildren) {
