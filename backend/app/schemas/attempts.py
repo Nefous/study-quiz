@@ -11,6 +11,7 @@ class AttemptAnswer(BaseModel):
 
 
 class AttemptCreate(BaseModel):
+    attempt_id: str | None = None
     topic: str
     difficulty: str
     mode: str

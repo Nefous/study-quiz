@@ -21,6 +21,10 @@ class QuestionOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class FavoriteQuestionOut(QuestionOut):
+    correct_answer_text: str | None = None
+
+
 class QuestionCreate(BaseModel):
     topic: Topic
     difficulty: Difficulty

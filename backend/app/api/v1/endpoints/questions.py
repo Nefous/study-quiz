@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.repositories.question_favorite_repo import QuestionFavoriteRepository
 from app.repositories.question_repo import QuestionRepository
-from app.schemas.question import QuestionOut
+from app.schemas.question import FavoriteQuestionOut, QuestionOut
 from app.utils.enums import Difficulty, QuestionType, Topic
 from app.services.auth_service import get_current_user
 
@@ -43,7 +43,7 @@ async def list_questions(
     return [QuestionOut.model_validate(q) for q in questions]
 
 
-@router.get("/favorites", response_model=list[QuestionOut])
+@router.get("/favorites", response_model=list[FavoriteQuestionOut])
 async def list_favorite_questions(
     topic: str | None = Query(default=None),
     difficulty: str | None = Query(default=None),
@@ -63,7 +63,22 @@ async def list_favorite_questions(
         limit=limit,
         offset=offset,
     )
-    return [QuestionOut.model_validate(q) for q in favorites]
+    output = []
+    for item in favorites:
+        question = FavoriteQuestionOut.model_validate(item)
+        if question.type == QuestionType.MCQ:
+            if question.choices and question.correct_answer:
+                choice_text = question.choices.get(question.correct_answer)
+                if choice_text:
+                    question.correct_answer_text = f"{question.correct_answer} — {choice_text}"
+                else:
+                    question.correct_answer_text = question.correct_answer
+            else:
+                question.correct_answer_text = question.correct_answer
+        else:
+            question.correct_answer_text = question.correct_answer
+        output.append(question)
+    return output
 
 
 @router.post("/{question_id}/favorite")

@@ -21,6 +21,17 @@ class QuizAttemptRepository:
         await self.session.refresh(attempt)
         return attempt
 
+    async def update_attempt(self, attempt: QuizAttempt, data: dict) -> QuizAttempt:
+        total = int(data.get("total_count", 0) or 0)
+        correct = int(data.get("correct_count", 0) or 0)
+        score_percent = round((correct / total) * 100) if total else 0
+        for key, value in data.items():
+            setattr(attempt, key, value)
+        attempt.score_percent = score_percent
+        await self.session.commit()
+        await self.session.refresh(attempt)
+        return attempt
+
     async def list_attempts(
         self,
         user_id,

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -13,34 +12,18 @@ from pydantic import ValidationError
 from app.integrations.next_quiz_recommendation_chain import (
     generate_next_quiz_recommendation,
 )
+from app.repositories.ai_recommendation_repo import AiRecommendationRepository
 from app.repositories.quiz_attempt_repo import QuizAttemptRepository
 from app.schemas.recommendations import (
     NextQuizRecommendation,
+    NextQuizRecommendationGenerateInput,
     NextQuizRecommendationGenerated,
 )
 from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
-_CACHE_TTL = timedelta(hours=6)
-_GENERATED_CACHE: dict[str, dict[str, Any]] = {}
-
-
-def _get_cached_generated(user_id: str) -> dict[str, Any] | None:
-    cached = _GENERATED_CACHE.get(user_id)
-    if not cached:
-        return None
-    if cached["expires_at"] <= datetime.utcnow():
-        _RECOMMENDATION_CACHE.pop(user_id, None)
-        return None
-    return cached["payload"]
-
-
-def _set_cached_generated(user_id: str, payload: dict[str, Any]) -> None:
-    _GENERATED_CACHE[user_id] = {
-        "expires_at": datetime.utcnow() + _CACHE_TTL,
-        "payload": payload,
-    }
+_ALLOWED_TOPICS = {"python_core", "big_o", "algorithms", "data_structures", "mixed"}
 def _build_base_recommendation(attempts: list) -> tuple[dict[str, Any], str]:
     if not attempts:
         base = {
@@ -108,30 +91,36 @@ def _topic_bucket(attempts: list) -> dict[str, list[int]]:
     return bucket
 
 
-@router.get("/next-quiz", response_model=NextQuizRecommendation)
+@router.get("/next-quiz", response_model=NextQuizRecommendation, response_model_exclude_none=True)
 async def get_next_quiz_recommendation(
     user=Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> NextQuizRecommendation:
-    repo = QuizAttemptRepository(session)
-    attempts = await repo.list_attempts(user_id=user.id, limit=20, offset=0)
-    base, _ = _build_base_recommendation(attempts)
-    return NextQuizRecommendation(**base)
+    repo = AiRecommendationRepository(session)
+    active = await repo.get_active(user.id)
+    if not active:
+        return NextQuizRecommendation()
+
+    tips = active.tips_json or {}
+    return NextQuizRecommendation(
+        id=str(active.id),
+        topic=active.topic,
+        difficulty=active.difficulty,
+        size=active.size,
+        based_on=tips.get("based_on"),
+        reason=tips.get("reason"),
+        prep=tips.get("prep"),
+    )
 
 
-@router.post("/next-quiz:generate", response_model=NextQuizRecommendationGenerated)
+@router.post("/next-quiz/generate", response_model=NextQuizRecommendationGenerated)
 async def generate_next_quiz_recommendation_endpoint(
     user=Depends(get_current_user),
-    force: bool = Query(default=False),
     session: AsyncSession = Depends(get_session),
 ) -> NextQuizRecommendationGenerated:
     settings = get_settings()
     if not settings.GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="AI recommendation not configured")
-
-    cached = _get_cached_generated(str(user.id))
-    if cached and not force:
-        return NextQuizRecommendationGenerated(**cached)
 
     repo = QuizAttemptRepository(session)
     attempts = await repo.list_attempts(user_id=user.id, limit=20, offset=0)
@@ -152,16 +141,77 @@ async def generate_next_quiz_recommendation_endpoint(
         "reason": ai_payload.get("reason") or "Focus on steady improvement.",
         "prep": ai_payload.get("prep") or [],
     }
-
     try:
-        validated = NextQuizRecommendationGenerated(**merged)
-        payload = validated.model_dump()
+        validated = NextQuizRecommendationGenerateInput(**merged)
+        topic = validated.topic
+        difficulty = validated.difficulty
+        size = validated.size
+        reason = validated.reason
+        prep = validated.prep
     except ValidationError:
-        payload = {
-            **base,
-            "reason": merged["reason"],
-            "prep": merged["prep"],
-        }
+        topic = "mixed"
+        difficulty = "junior"
+        size = 10
+        reason = merged.get("reason") or "Focus on steady improvement."
+        prep = merged.get("prep") or []
 
-    _set_cached_generated(str(user.id), payload)
-    return NextQuizRecommendationGenerated(**payload)
+    if topic not in _ALLOWED_TOPICS:
+        topic = "mixed"
+
+    recommendation_repo = AiRecommendationRepository(session)
+    stored = await recommendation_repo.create_active(
+        user_id=user.id,
+        topic=topic,
+        difficulty=difficulty,
+        size=size,
+        tips_json={
+            "reason": reason,
+            "prep": prep,
+            "based_on": merged.get("based_on"),
+        },
+    )
+
+    return NextQuizRecommendationGenerated(
+        id=str(stored.id),
+        topic=stored.topic,
+        difficulty=stored.difficulty,
+        size=stored.size,
+        based_on=stored.tips_json.get("based_on") if stored.tips_json else None,
+        reason=stored.tips_json.get("reason") if stored.tips_json else reason,
+        prep=stored.tips_json.get("prep") if stored.tips_json else prep,
+    )
+
+
+@router.post("/{recommendation_id}/start")
+async def start_recommendation_quiz(
+    recommendation_id: str,
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    recommendation_repo = AiRecommendationRepository(session)
+    recommendation = await recommendation_repo.get_by_id(recommendation_id)
+    if not recommendation or recommendation.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+
+    if recommendation.status != "active":
+        raise HTTPException(status_code=400, detail="Recommendation is not active")
+
+    if recommendation.attempt_id:
+        return {"attempt_id": str(recommendation.attempt_id)}
+
+    attempt_repo = QuizAttemptRepository(session)
+    attempt = await attempt_repo.create_attempt(
+        {
+            "user_id": user.id,
+            "topic": recommendation.topic,
+            "difficulty": recommendation.difficulty,
+            "mode": "practice",
+            "size": recommendation.size,
+            "correct_count": 0,
+            "total_count": recommendation.size,
+            "answers": [],
+            "meta": {"recommendation_id": str(recommendation.id), "pending": True},
+        }
+    )
+    await recommendation_repo.set_attempt_id(recommendation.id, attempt.id)
+    return {"attempt_id": str(attempt.id)}

@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.db.session import get_session
 from app.integrations.ai_review_chain import generate_ai_review, normalize_next_quiz_difficulty
 from app.repositories.quiz_attempt_repo import QuizAttemptRepository
+from app.repositories.ai_recommendation_repo import AiRecommendationRepository
 from app.repositories.question_repo import QuestionRepository
 from app.schemas.attempts import (
     AiReviewResponse,
@@ -144,7 +145,19 @@ async def create_attempt(
         data["correct_count"] = correct_count
         data["answers"] = answers_payload
     data["user_id"] = user.id
-    attempt = await repo.create_attempt(data)
+
+    if body.attempt_id:
+        attempt = await repo.get_by_id(UUID(str(body.attempt_id)))
+        if not attempt or attempt.user_id != user.id:
+            raise HTTPException(status_code=404, detail="Attempt not found")
+        data.pop("attempt_id", None)
+        attempt = await repo.update_attempt(attempt, data)
+    else:
+        data.pop("attempt_id", None)
+        attempt = await repo.create_attempt(data)
+
+    recommendation_repo = AiRecommendationRepository(session)
+    await recommendation_repo.complete_by_attempt(user.id, attempt.id)
     return _to_out(attempt)
 
 
