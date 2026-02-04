@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.repositories.question_favorite_repo import QuestionFavoriteRepository
 from app.repositories.question_repo import QuestionRepository
+from app.repositories.attempt_answer_repo import AttemptAnswerRepository
 from app.schemas.question import FavoriteQuestionOut, QuestionOut
 from app.utils.enums import Difficulty, QuestionType, Topic
 from app.services.auth_service import get_current_user
@@ -79,6 +80,15 @@ async def list_favorite_questions(
             question.correct_answer_text = question.correct_answer
         output.append(question)
     return output
+
+
+@router.get("/mistakes/stats")
+async def get_mistakes_stats(
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    repo = AttemptAnswerRepository(session)
+    return await repo.mistake_stats(user.id)
 
 
 @router.post("/{question_id}/favorite")

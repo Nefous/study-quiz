@@ -1,13 +1,15 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AttemptAnswer(BaseModel):
     question_id: str
-    user_answer: str
+    selected_answer: str = Field(alias="user_answer")
     is_correct: bool
+
+    model_config = {"populate_by_name": True}
 
 
 class AttemptCreate(BaseModel):
@@ -15,6 +17,7 @@ class AttemptCreate(BaseModel):
     topic: str
     difficulty: str
     mode: str
+    attempt_type: str | None = None
     size: int | None = None
     correct_count: int
     total_count: int
@@ -22,6 +25,26 @@ class AttemptCreate(BaseModel):
     meta: dict | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    submitted_at: datetime | None = None
+    time_limit_seconds: int | None = None
+    time_spent_seconds: int | None = None
+    timed_out: bool | None = None
+
+
+class AttemptSubmit(BaseModel):
+    attempt_id: str | None = None
+    topic: str | None = None
+    difficulty: str
+    mode: str
+    attempt_type: str | None = None
+    size: int | None = None
+    correct_count: int
+    total_count: int
+    answers: list[AttemptAnswer]
+    meta: dict | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    submitted_at: datetime | None = None
     time_limit_seconds: int | None = None
     time_spent_seconds: int | None = None
     timed_out: bool | None = None
@@ -32,6 +55,7 @@ class AttemptOut(BaseModel):
     topic: str
     difficulty: str
     mode: str
+    attempt_type: str
     size: int | None = None
     correct_count: int
     total_count: int
@@ -39,6 +63,7 @@ class AttemptOut(BaseModel):
     meta: dict | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    submitted_at: datetime | None = None
     time_limit_seconds: int | None = None
     time_spent_seconds: int | None = None
     timed_out: bool | None = None
@@ -57,6 +82,7 @@ class AttemptTopicStats(BaseModel):
 class AttemptRecentScore(BaseModel):
     score_percent: int
     created_at: datetime
+    mode: str | None = None
 
 
 class AttemptStats(BaseModel):
@@ -70,6 +96,17 @@ class AttemptStats(BaseModel):
     weakest_topic: str | None = None
     recent_scores: list[int]
     recent_attempts: list[AttemptRecentScore]
+
+
+class AttemptReviewItem(BaseModel):
+    question_id: str
+    prompt: str
+    choices: dict[str, str] | None = None
+    correct_answer: str | None = None
+    correct_answer_text: str | None = None
+    user_answer: str | None = None
+    is_correct: bool
+    explanation: str | None = None
 
 
 class AiReviewFocusTopic(BaseModel):

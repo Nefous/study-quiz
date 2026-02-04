@@ -106,7 +106,19 @@ async def validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
 ) -> JSONResponse:
+    logger.warning(
+        "validation error path=%s errors=%s body=%s",
+        request.url.path,
+        exc.errors(),
+        exc.body,
+    )
+    include_details = settings.LOG_LEVEL.lower() == "debug"
+    if include_details:
+        detail = exc.errors()
+    else:
+        first_error = exc.errors()[0] if exc.errors() else {}
+        detail = first_error.get("msg") or "Invalid request"
     return JSONResponse(
         status_code=400,
-        content={"error": {"message": "Invalid request", "status": 400}},
+        content={"error": {"message": detail, "status": 400}},
     )

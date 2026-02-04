@@ -22,3 +22,8 @@ class Topic(StrEnum):
 class QuizMode(StrEnum):
     PRACTICE = "practice"
     EXAM = "exam"
+
+
+class AttemptType(StrEnum):
+    NORMAL = "normal"
+    MISTAKES_REVIEW = "mistakes_review"

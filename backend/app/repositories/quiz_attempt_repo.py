@@ -41,6 +41,7 @@ class QuizAttemptRepository:
         stmt = (
             select(QuizAttempt)
             .where(QuizAttempt.user_id == user_id)
+            .where(QuizAttempt.submitted_at.is_not(None))
             .order_by(desc(QuizAttempt.created_at))
             .limit(limit)
             .offset(offset)
@@ -50,6 +51,24 @@ class QuizAttemptRepository:
 
     async def get_by_id(self, attempt_id) -> QuizAttempt | None:
         stmt = select(QuizAttempt).where(QuizAttempt.id == attempt_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_in_progress_attempt(
+        self,
+        user_id,
+        attempt_type: str,
+    ) -> QuizAttempt | None:
+        stmt = (
+            select(QuizAttempt)
+            .where(
+                QuizAttempt.user_id == user_id,
+                QuizAttempt.attempt_type == attempt_type,
+                QuizAttempt.finished_at.is_(None),
+            )
+            .order_by(desc(QuizAttempt.created_at))
+            .limit(1)
+        )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -71,7 +90,10 @@ class QuizAttemptRepository:
         date_from=None,
         date_to=None,
     ) -> dict:
-        filters = [QuizAttempt.user_id == user_id]
+        filters = [
+            QuizAttempt.user_id == user_id,
+            QuizAttempt.submitted_at.is_not(None),
+        ]
         if topics:
             filters.append(QuizAttempt.topic.in_(topics))
         if mode:
@@ -133,7 +155,7 @@ class QuizAttemptRepository:
         by_topic.sort(key=lambda item: item["attempts"], reverse=True)
 
         recent_stmt = (
-            select(QuizAttempt.score_percent, QuizAttempt.created_at)
+            select(QuizAttempt.score_percent, QuizAttempt.created_at, QuizAttempt.mode)
             .where(*filters)
             .order_by(desc(QuizAttempt.created_at), desc(QuizAttempt.id))
             .limit(20)
@@ -141,8 +163,12 @@ class QuizAttemptRepository:
         recent_result = await self.session.execute(recent_stmt)
         recent_rows = recent_result.all()
         recent_attempts = [
-            {"score_percent": int(score or 0), "created_at": created_at}
-            for score, created_at in recent_rows
+            {
+                "score_percent": int(score or 0),
+                "created_at": created_at,
+                "mode": mode,
+            }
+            for score, created_at, mode in recent_rows
         ]
         recent_attempts.reverse()
         recent_scores = [item["score_percent"] for item in recent_attempts]

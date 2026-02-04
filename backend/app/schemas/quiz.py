@@ -2,7 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.utils.enums import Difficulty, QuestionType, QuizMode, Topic
+from app.utils.enums import AttemptType, Difficulty, QuestionType, QuizMode, Topic
 
 
 class QuizGenerateRequest(BaseModel):
@@ -10,6 +10,7 @@ class QuizGenerateRequest(BaseModel):
     topics: list[Topic] | None = None
     difficulty: Difficulty
     mode: QuizMode
+    attempt_type: AttemptType | None = None
     size: int | None = None
 
 
@@ -29,3 +30,4 @@ class QuizQuestionOut(BaseModel):
 class QuizGenerateResponse(BaseModel):
     quiz_id: UUID
     questions: list[QuizQuestionOut] = Field(default_factory=list)
+    attempt_id: UUID | None = None
