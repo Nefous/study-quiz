@@ -2,12 +2,14 @@ export type Topic = "python_core" | "big_o" | "algorithms" | "data_structures" |
 export type Difficulty = "junior" | "middle";
 export type QuestionType = "mcq" | "code_output";
 export type QuizMode = "practice" | "exam";
+export type AttemptType = "normal" | "mistakes_review";
 
 export type QuizGenerateRequest = {
   topic?: Topic;
   topics?: Topic[];
   difficulty: Difficulty;
   mode: QuizMode;
+  attempt_type?: AttemptType;
   size?: number;
 };
 
@@ -29,6 +31,7 @@ export type FavoriteQuestion = QuizQuestion & {
 export type QuizGenerateResponse = {
   quiz_id: string;
   questions: QuizQuestion[];
+  attempt_id?: string | null;
 };
 
 export type ApiError = {
@@ -46,7 +49,7 @@ export type MetaResponse = {
 
 export type AttemptAnswer = {
   question_id: string;
-  user_answer: string;
+  selected_answer: string;
   is_correct: boolean;
 };
 
@@ -55,6 +58,7 @@ export type AttemptCreate = {
   topic: string;
   difficulty: string;
   mode: QuizMode;
+  attempt_type?: AttemptType;
   size?: number;
   correct_count: number;
   total_count: number;
@@ -64,6 +68,7 @@ export type AttemptCreate = {
   };
   started_at?: string | null;
   finished_at?: string | null;
+  submitted_at?: string | null;
   time_limit_seconds?: number | null;
   time_spent_seconds?: number | null;
   timed_out?: boolean | null;
@@ -84,6 +89,18 @@ export type AttemptTopicStats = {
 export type AttemptRecentScore = {
   score_percent: number;
   created_at: string;
+  mode?: QuizMode | string;
+};
+
+export type AttemptReviewItem = {
+  question_id: string;
+  prompt: string;
+  choices?: Record<string, string> | null;
+  correct_answer?: string | null;
+  correct_answer_text?: string | null;
+  user_answer?: string | null;
+  is_correct: boolean;
+  explanation?: string | null;
 };
 
 export type AttemptStats = {
@@ -97,6 +114,13 @@ export type AttemptStats = {
   weakest_topic?: string | null;
   recent_scores?: number[];
   recent_attempts?: AttemptRecentScore[];
+};
+
+export type MistakesStats = {
+  total_wrong: number;
+  unique_wrong_questions: number;
+  last_30_days_wrong: number;
+  last_30_days_unique: number;
 };
 
 export type QuizSummary = {

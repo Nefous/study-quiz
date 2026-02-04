@@ -6,6 +6,7 @@ import History from "./pages/History";
 import Favorites from "./pages/Favorites";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
+import RepeatMistakes from "./pages/RepeatMistakes";
 import Quiz from "./pages/Quiz";
 import Results from "./pages/Results";
 import AuthCallback from "./pages/AuthCallback";
@@ -79,6 +80,14 @@ export default function App() {
           element={
             <RequireAuth>
               <Profile />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/repeat-mistakes"
+          element={
+            <RequireAuth>
+              <RepeatMistakes />
             </RequireAuth>
           }
         />

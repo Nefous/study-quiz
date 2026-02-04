@@ -8,9 +8,12 @@ import type {
   QuizMode,
   AttemptCreate,
   AttemptOut,
+  AttemptCreate,
+  AttemptReviewItem,
   AttemptStats,
   QuizQuestion,
   FavoriteQuestion,
+  MistakesStats,
   NextQuizRecommendation,
   NextQuizRecommendationGenerated,
   AiReviewResponse,
@@ -29,12 +32,31 @@ export async function generateQuiz(
   });
 }
 
+export async function generateMistakesReview(
+  limit = 10
+): Promise<QuizGenerateResponse> {
+  return request<QuizGenerateResponse>(apiUrl("/quiz/generate"), {
+    method: "POST",
+    body: JSON.stringify({ attempt_type: "mistakes_review", limit })
+  });
+}
+
 export async function getMeta(): Promise<MetaResponse> {
   return request<MetaResponse>(apiUrl("/meta"));
 }
 
 export async function createAttempt(payload: AttemptCreate): Promise<AttemptOut> {
   return request<AttemptOut>(apiUrl("/attempts"), {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function submitAttempt(
+  attemptId: string,
+  payload: AttemptCreate
+): Promise<AttemptOut> {
+  return request<AttemptOut>(apiUrl(`/attempts/${attemptId}/submit`), {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -48,6 +70,12 @@ export async function listAttempts(limit = 20, offset = 0): Promise<AttemptOut[]
 
 export async function getAttempt(attemptId: string): Promise<AttemptOut> {
   return request<AttemptOut>(apiUrl(`/attempts/${attemptId}`));
+}
+
+export async function getAttemptReview(
+  attemptId: string
+): Promise<AttemptReviewItem[]> {
+  return request<AttemptReviewItem[]>(apiUrl(`/attempts/${attemptId}/review`));
 }
 
 export async function getAttemptStats(): Promise<AttemptStats> {
@@ -115,6 +143,10 @@ export async function listFavoriteQuestions(
   if (topic) params.set("topic", topic);
   if (difficulty) params.set("difficulty", difficulty);
   return request<FavoriteQuestion[]>(apiUrl(`/questions/favorites?${params.toString()}`));
+}
+
+export async function getMistakesStats(): Promise<MistakesStats> {
+  return request<MistakesStats>(apiUrl("/questions/mistakes/stats"));
 }
 
 export async function login(payload: LoginRequest): Promise<TokenResponse> {

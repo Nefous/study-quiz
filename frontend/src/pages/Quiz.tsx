@@ -17,12 +17,15 @@ import {
   generateQuiz,
   getHint,
   listFavoriteQuestions,
+  submitAttempt,
+  createAttempt,
   unfavoriteQuestion,
   difficultyLabels,
   modeLabels,
   topicLabels
 } from "../api";
 import type {
+  AttemptType,
   Difficulty,
   QuizGenerateRequest,
   QuizGenerateResponse,
@@ -66,10 +69,12 @@ const HINT_LEVEL_LABELS: Record<number, string> = {
 export default function Quiz() {
   const navigate = useNavigate();
   const location = useLocation();
+  const locationState = location.state as
+    | { attemptId?: string; preloadedQuiz?: QuizGenerateResponse }
+    | null;
   const [params] = useSearchParams();
   const [attemptId, setAttemptId] = useState<string | null>(() => {
-    const state = location.state as { attemptId?: string } | null;
-    return state?.attemptId ?? null;
+    return locationState?.attemptId ?? null;
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +98,8 @@ export default function Quiz() {
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [timeLimitSeconds, setTimeLimitSeconds] = useState<number | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const finishTriggeredRef = useRef(false);
   const lastTickRef = useRef<number | null>(null);
 
@@ -101,6 +108,7 @@ export default function Quiz() {
     const topicsParam = params.get("topics");
     const difficulty = params.get("difficulty") as Difficulty | null;
     const mode = params.get("mode") as QuizMode | null;
+    const attemptType = params.get("attempt_type") as AttemptType | null;
     const sizeParam = params.get("size");
     const size = sizeParam ? Number(sizeParam) : undefined;
 
@@ -126,7 +134,7 @@ export default function Quiz() {
       } else {
         topics = [topic];
       }
-    } else {
+    } else if (attemptType !== "mistakes_review") {
       return null;
     }
     if (!validDifficulties.includes(difficulty)) return null;
@@ -137,6 +145,7 @@ export default function Quiz() {
       topics: topics ?? undefined,
       difficulty,
       mode,
+      attempt_type: attemptType ?? undefined,
       size: Number.isFinite(size) ? Math.max(1, Number(size)) : undefined
     };
   }, [params]);
@@ -189,6 +198,18 @@ export default function Quiz() {
     const load = async () => {
       try {
         setLoading(true);
+        if (locationState?.preloadedQuiz?.questions?.length) {
+          if (active) {
+            setQuiz(locationState.preloadedQuiz);
+            if (locationState.preloadedQuiz.attempt_id &&
+                locationState.preloadedQuiz.attempt_id !== attemptId) {
+              setAttemptId(locationState.preloadedQuiz.attempt_id);
+            }
+            setLoading(false);
+          }
+          return;
+        }
+
         const cached = sessionStorage.getItem(storageKey);
         if (cached) {
           try {
@@ -245,6 +266,9 @@ export default function Quiz() {
             return;
           }
           setQuiz(response);
+          if (response.attempt_id && response.attempt_id !== attemptId) {
+            setAttemptId(response.attempt_id);
+          }
         }
       } catch (err) {
         if (active) {
@@ -261,7 +285,7 @@ export default function Quiz() {
     return () => {
       active = false;
     };
-  }, [settings, storageKey]);
+  }, [locationState, settings, storageKey]);
 
   useEffect(() => {
     if (!quiz) return;
@@ -291,10 +315,21 @@ export default function Quiz() {
     finishTriggeredRef.current = false;
   }, [quiz?.quiz_id]);
 
-  const completeQuiz = (didTimeOut: boolean) => {
+  const completeQuiz = async (didTimeOut: boolean) => {
     if (finishTriggeredRef.current) return;
     if (!quiz || !settings) return;
     finishTriggeredRef.current = true;
+    if (submitting) return;
+    setSubmitting(true);
+
+    const unanswered = quiz.questions.filter((q) => !answers[q.id]);
+    if (unanswered.length > 0) {
+      finishTriggeredRef.current = false;
+      setSubmitting(false);
+      setSubmitError("Please answer all questions before submitting.");
+      return;
+    }
+    setSubmitError(null);
 
     const totalQuestions = quiz.questions.length;
     const computedResults = quiz.questions.reduce<Record<string, PracticeResult>>((acc, current) => {
@@ -340,6 +375,7 @@ export default function Quiz() {
       questions: quiz.questions,
       answers,
       mode: settings.mode,
+      attempt_type: settings.attempt_type,
       practiceResults: isPractice ? computedResults : undefined,
       penaltyByQuestion,
       summary,
@@ -352,11 +388,70 @@ export default function Quiz() {
       started_at: startedAt ?? undefined,
       finished_at: finishedAt
     };
-    sessionStorage.setItem(`${RESULTS_PREFIX}:${quiz.quiz_id}`, JSON.stringify(payload));
-    sessionStorage.setItem(`${RESULTS_PREFIX}:last`, JSON.stringify(payload));
-    sessionStorage.removeItem(storageKey);
-    localStorage.removeItem(timerStorageKey);
-    navigate("/results", { state: payload });
+
+    try {
+      const selectedTopics = settings.topics ?? [];
+      const topicValue = settings.topic === "random"
+        ? "random"
+        : selectedTopics.length > 1
+          ? "mix"
+          : selectedTopics[0] ?? settings.topic;
+      const attemptPayload = {
+        attempt_id: attemptId ?? undefined,
+        topic: topicValue,
+        meta: selectedTopics.length > 1 ? { topics: selectedTopics } : undefined,
+        difficulty: settings.difficulty,
+        mode: settings.mode,
+        attempt_type: settings.attempt_type,
+        size: settings.size,
+        correct_count: correctCount,
+        total_count: totalQuestions,
+        answers: quiz.questions.map((question) => {
+          const expected = normalizeAnswer(question.correct_answer ?? "");
+          const provided = normalizeAnswer(answers[question.id] ?? "");
+          const isCorrect = expected === provided;
+          return {
+            question_id: question.id,
+            selected_answer: answers[question.id] ?? "",
+            is_correct: isCorrect
+          };
+        }),
+        started_at: startedAt ?? null,
+        finished_at: finishedAt,
+        time_limit_seconds: timeLimit ?? null,
+        time_spent_seconds: timeSpent ?? null,
+        timed_out: didTimeOut || false
+      };
+
+      let finalAttemptId = attemptId;
+      if (!finalAttemptId) {
+        const created = await createAttempt(attemptPayload);
+        finalAttemptId = created.id;
+        setAttemptId(created.id);
+      }
+
+      if (finalAttemptId) {
+        await submitAttempt(finalAttemptId, attemptPayload);
+      }
+
+      sessionStorage.setItem(`${RESULTS_PREFIX}:${quiz.quiz_id}`, JSON.stringify(payload));
+      sessionStorage.setItem(`${RESULTS_PREFIX}:last`, JSON.stringify(payload));
+      sessionStorage.removeItem(storageKey);
+      localStorage.removeItem(timerStorageKey);
+      window.dispatchEvent(new Event("attempts:refresh"));
+      navigate("/results", { state: payload });
+    } catch (submitError) {
+      finishTriggeredRef.current = false;
+      const apiMessage = (submitError as { message?: string })?.message;
+      setSubmitError(
+        apiMessage ||
+          (submitError instanceof Error
+            ? submitError.message
+            : "Failed to submit quiz")
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -414,7 +509,7 @@ export default function Quiz() {
   useEffect(() => {
     if (!isExamMode || remainingSeconds === null) return;
     if (remainingSeconds > 0) return;
-    completeQuiz(true);
+    void completeQuiz(true);
   }, [isExamMode, remainingSeconds]);
 
   if (!settings) {
@@ -497,7 +592,7 @@ export default function Quiz() {
       setCurrentIndex((prev) => prev + 1);
       return;
     }
-    completeQuiz(false);
+    void completeQuiz(false);
   };
 
   const handleQuit = () => {
@@ -644,6 +739,10 @@ export default function Quiz() {
           </div>
         ) : null}
       </Card>
+
+      {submitError ? (
+        <Alert tone="warning">{submitError}</Alert>
+      ) : null}
 
       {/* Question card */}
       <Card variant="elevated" className="space-y-6">

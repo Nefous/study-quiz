@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart3,
@@ -54,36 +54,41 @@ export default function History() {
     modes: []
   });
 
+  const loadHistory = useCallback(async () => {
+    try {
+      if (status !== "authed") return;
+      setLoading(true);
+      const [statsResponse, attemptsResponse] = await Promise.all([
+        getAttemptStats(),
+        listAttempts(50, 0)
+      ]);
+      setStats(statsResponse);
+      setAttempts(attemptsResponse);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load history");
+    } finally {
+      setLoading(false);
+    }
+  }, [status]);
+
   useEffect(() => {
     let active = true;
-    const load = async () => {
-      try {
-        if (status !== "authed") return;
-        setLoading(true);
-        const [statsResponse, attemptsResponse] = await Promise.all([
-          getAttemptStats(),
-          listAttempts(50, 0)
-        ]);
-        if (active) {
-          setStats(statsResponse);
-          setAttempts(attemptsResponse);
-        }
-      } catch (err) {
-        if (active) {
-          setError(err instanceof Error ? err.message : "Failed to load history");
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    load();
+    loadHistory();
     return () => {
       active = false;
     };
-  }, [status]);
+  }, [loadHistory, status]);
+
+  useEffect(() => {
+    const handler = () => {
+      void loadHistory();
+    };
+    window.addEventListener("attempts:refresh", handler);
+    return () => {
+      window.removeEventListener("attempts:refresh", handler);
+    };
+  }, [loadHistory]);
 
   useEffect(() => {
     if (status === "guest") {
@@ -448,29 +453,34 @@ export default function History() {
                       })}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      {topicLabelsList.length > 0 ? (
-                        showCondensedTopics ? (
-                          <Badge tone="neutral">{condensedLabel}</Badge>
+                      {attempt.attempt_type !== "mistakes_review" ? (
+                        topicLabelsList.length > 0 ? (
+                          showCondensedTopics ? (
+                            <Badge tone="neutral">{condensedLabel}</Badge>
+                          ) : (
+                            topicLabelsList.map((label) => (
+                              <Badge tone="neutral" key={label}>
+                                {label}
+                              </Badge>
+                            ))
+                          )
                         ) : (
-                          topicLabelsList.map((label) => (
-                            <Badge tone="neutral" key={label}>
-                              {label}
-                            </Badge>
-                          ))
+                          <Badge tone="neutral">
+                            {TOPIC_BADGE_LABELS[attempt.topic] ??
+                              topicLabels[attempt.topic as keyof typeof topicLabels] ??
+                              attempt.topic}
+                          </Badge>
                         )
-                      ) : (
-                        <Badge tone="neutral">
-                          {TOPIC_BADGE_LABELS[attempt.topic] ??
-                            topicLabels[attempt.topic as keyof typeof topicLabels] ??
-                            attempt.topic}
-                        </Badge>
-                      )}
+                      ) : null}
                       <Badge tone="neutral">
                         {difficultyLabels[attempt.difficulty as keyof typeof difficultyLabels] ?? attempt.difficulty}
                       </Badge>
                       <Badge tone="neutral">
                         {modeLabels[attempt.mode as keyof typeof modeLabels] ?? attempt.mode}
                       </Badge>
+                      {attempt.attempt_type === "mistakes_review" ? (
+                        <Badge tone="warning">Repeat Mistakes</Badge>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-4">

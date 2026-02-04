@@ -2,8 +2,19 @@ import { LogOut, UserCircle } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAttemptStats, getNextQuizRecommendation, generateNextQuizRecommendation, startRecommendation } from "../api";
-import type { AttemptStats, NextQuizRecommendationGenerated, Difficulty } from "../api/types";
+import {
+  getAttemptStats,
+  getNextQuizRecommendation,
+  generateNextQuizRecommendation,
+  getMistakesStats,
+  startRecommendation
+} from "../api";
+import type {
+  AttemptStats,
+  Difficulty,
+  MistakesStats,
+  NextQuizRecommendationGenerated
+} from "../api/types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
@@ -15,6 +26,8 @@ export default function Profile() {
   const [stats, setStats] = useState<AttemptStats | null>(null);
   const [generatedRecommendation, setGeneratedRecommendation] = useState<NextQuizRecommendationGenerated | null>(null);
   const [generatedLoading, setGeneratedLoading] = useState(false);
+  const [mistakesStats, setMistakesStats] = useState<MistakesStats | null>(null);
+  const [mistakesLoading, setMistakesLoading] = useState(false);
 
   const createdAtLabel = useMemo(() => {
     if (!user?.created_at) return null;
@@ -38,6 +51,31 @@ export default function Profile() {
       }
     };
     void load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadMistakes = async () => {
+      try {
+        setMistakesLoading(true);
+        const response = await getMistakesStats();
+        if (active) {
+          setMistakesStats(response);
+        }
+      } catch {
+        if (active) {
+          setMistakesStats(null);
+        }
+      } finally {
+        if (active) {
+          setMistakesLoading(false);
+        }
+      }
+    };
+    void loadMistakes();
     return () => {
       active = false;
     };
@@ -97,6 +135,26 @@ export default function Profile() {
       params.set("topic", topic);
     }
     navigate(`/quiz?${params.toString()}`, { state: { attemptId: start.attempt_id } });
+  };
+
+  const startRepeatMistakes = () => {
+    const params = new URLSearchParams({
+      difficulty: "junior",
+      mode: "practice",
+      attempt_type: "mistakes_review",
+      size: "10"
+    });
+    navigate(`/quiz?${params.toString()}`);
+  };
+
+  const startMixedQuiz = () => {
+    const params = new URLSearchParams({
+      difficulty: "junior",
+      mode: "practice",
+      size: "10",
+      topic: "random"
+    });
+    navigate(`/quiz?${params.toString()}`);
   };
 
   const recentAttempts = stats?.recent_attempts ?? [];
@@ -237,6 +295,47 @@ export default function Profile() {
               disabled={generatedLoading}
             >
               {generatedLoading ? "Loading..." : "AI Coach"}
+            </Button>
+          </div>
+        )}
+      </Card>
+
+      <Card variant="elevated" className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Repeat mistakes</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Review the questions you missed
+            </p>
+          </div>
+        </div>
+
+        {mistakesLoading ? (
+          <div className="space-y-3">
+            <div className="h-4 w-1/3 animate-pulse rounded bg-white/10" />
+            <div className="h-12 animate-pulse rounded-xl bg-white/[0.03]" />
+          </div>
+        ) : mistakesStats && mistakesStats.total_wrong > 0 ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
+              <span className="rounded-full bg-rose-500/15 px-3 py-1 text-xs font-medium text-rose-300">
+                {mistakesStats.unique_wrong_questions} questions to revisit
+              </span>
+              <span className="rounded-full bg-white/[0.06] px-3 py-1 text-xs text-slate-300">
+                {mistakesStats.last_30_days_wrong} wrong in 30 days
+              </span>
+            </div>
+            <Button type="button" onClick={startRepeatMistakes} className="w-full">
+              Repeat mistakes
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-slate-400">
+              No mistakes logged yet. Try a mixed quiz to get started.
+            </p>
+            <Button type="button" onClick={startMixedQuiz} className="w-full">
+              Start mixed quiz
             </Button>
           </div>
         )}

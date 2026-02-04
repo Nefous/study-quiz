@@ -101,6 +101,7 @@ export default function Home() {
     navigate(`/quiz?${params.toString()}`);
   };
 
+
   const startRecommendedQuiz = async () => {
     if (!isAuthenticated) {
       navigate("/login?returnUrl=%2F");
@@ -195,6 +196,13 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
+    if (!isAuthenticated) {
+      setGeneratedRecommendation(null);
+      sessionStorage.removeItem("aiCoachRecommendation");
+      return () => {
+        active = false;
+      };
+    }
     const loadActiveRecommendation = async () => {
       try {
         const response = await getNextQuizRecommendation();
@@ -225,7 +233,8 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [isAuthenticated]);
+
 
   useEffect(() => {
     sessionStorage.setItem(
@@ -414,9 +423,13 @@ export default function Home() {
                 <Button
                   type="button"
                   onClick={() => {
+                    if (!isAuthenticated) {
+                      navigate("/login?returnUrl=%2F");
+                      return;
+                    }
                     if (generatedLoading) return;
                     setGeneratedLoading(true);
-                    generateNextQuizRecommendation(true)
+                    generateNextQuizRecommendation()
                       .then((response) => {
                         setGeneratedRecommendation(response);
                         sessionStorage.setItem(

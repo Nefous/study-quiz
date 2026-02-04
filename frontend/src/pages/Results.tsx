@@ -17,6 +17,7 @@ import {
   difficultyLabels,
   getAttempt,
   getAttemptAiReview,
+  getAttemptReview,
   listFavoriteQuestions,
   favoriteQuestion,
   unfavoriteQuestion,
@@ -24,6 +25,7 @@ import {
 } from "../api";
 import type {
   AiReviewResponse,
+  AttemptReviewItem,
   QuizMode,
   QuizQuestion,
   QuizSummary,
@@ -45,6 +47,7 @@ type ResultsState = {
     topics?: Topic[];
     difficulty: string;
     mode: QuizMode;
+    attempt_type?: "normal" | "mistakes_review";
     size?: number;
   };
   quiz_id: string;
@@ -79,11 +82,15 @@ export default function Results() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [summary, setSummary] = useState<QuizSummary | null>(null);
   const [attemptMode, setAttemptMode] = useState<QuizMode | null>(null);
+  const [attemptType, setAttemptType] = useState<"normal" | "mistakes_review" | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [aiReview, setAiReview] = useState<AiReviewResponse | null>(null);
   const [aiReviewLoading, setAiReviewLoading] = useState(false);
   const [aiReviewError, setAiReviewError] = useState<string | null>(null);
+  const [reviewItems, setReviewItems] = useState<AttemptReviewItem[]>([]);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [serverAttemptId, setServerAttemptId] = useState<string | null>(null);
   const [creatingAttempt, setCreatingAttempt] = useState(false);
   const [attemptReady, setAttemptReady] = useState(false);
@@ -95,11 +102,13 @@ export default function Results() {
   const questions = state?.questions ?? [];
   const answers = state?.answers ?? {};
   const mode = state?.mode ?? attemptMode ?? "practice";
+  const effectiveAttemptType = state?.settings?.attempt_type ?? attemptType ?? "normal";
   const practiceResults = state?.practiceResults;
   const attemptId =
     (params.attemptId as string | undefined) ?? state?.attempt_id ?? serverAttemptId ?? null;
   const isPractice = mode === "practice";
   const isExam = mode === "exam";
+  const isMistakesReview = effectiveAttemptType === "mistakes_review";
   const hasDetails = Boolean(state && settings && questions.length > 0);
   const aiReviewStatus = aiReview?.status;
   const aiReviewNotGenerated = aiReviewStatus === "not_generated" || aiReviewStatus === "pending";
@@ -168,6 +177,7 @@ export default function Results() {
       meta: selectedTopics.length > 1 ? { topics: selectedTopics } : undefined,
       difficulty: settings.difficulty,
       mode: settings.mode,
+      attempt_type: settings.attempt_type ?? undefined,
       size: settings.size,
       correct_count: correctCount,
       total_count: totalCount,
@@ -177,7 +187,7 @@ export default function Results() {
         const isCorrect = expected === provided;
         return {
           question_id: question.id,
-          user_answer: answers[question.id] ?? "",
+          selected_answer: answers[question.id] ?? "",
           is_correct: isCorrect
         };
       }),
@@ -248,6 +258,7 @@ export default function Results() {
           timeLimitSec: attempt.time_limit_seconds ?? undefined
         });
         setAttemptMode(attempt.mode);
+        setAttemptType((attempt as { attempt_type?: "normal" | "mistakes_review" }).attempt_type ?? null);
         setAttemptReady(true);
       })
       .catch((err) => {
@@ -291,11 +302,26 @@ export default function Results() {
   }, [attemptId, status]);
 
   useEffect(() => {
+    if (status !== "authed") return;
+    if (!attemptId) return;
+    if (!isMistakesReview) return;
+    setReviewLoading(true);
+    setReviewError(null);
+    getAttemptReview(attemptId)
+      .then((items) => setReviewItems(items))
+      .catch((err) => {
+        setReviewError(err instanceof Error ? err.message : "Failed to load review");
+      })
+      .finally(() => setReviewLoading(false));
+  }, [attemptId, isMistakesReview, status]);
+
+  useEffect(() => {
     if (createAttemptOnceRef.current) return;
     if (!state) return;
     if (!effectiveSummary) return;
     if (!settings) return;
     if (status !== "authed") return;
+    if (attemptId) return;
     if (attemptId && state.attempt_id && attemptId !== state.attempt_id) return;
     if (attemptId && !state.attempt_id && state.quiz_id && attemptId !== state.quiz_id) return;
     if (!attemptPayload) return;
@@ -457,15 +483,25 @@ export default function Results() {
     <div className="mx-auto max-w-3xl space-y-8">
       {/* Header */}
       <PageHeader
-        badge={isPractice ? "Practice Complete" : "Exam Complete"}
+        badge={
+          isPractice
+            ? "Practice Complete"
+            : isMistakesReview
+              ? "Repeat Mistakes"
+              : "Exam Complete"
+        }
         title={
           isPractice
             ? `You scored ${finalScore}%`
+            : isMistakesReview
+              ? `Repeat mistakes score: ${finalScore}%`
             : `Final score: ${finalScore}%`
         }
         description={
           isPractice
             ? `${correct} out of ${total} questions answered correctly.`
+            : isMistakesReview
+              ? `${correct} out of ${total} questions answered correctly.`
             : timeMessage ?? "Switch to practice mode to see detailed feedback."
         }
         actions={
@@ -491,6 +527,12 @@ export default function Results() {
       />
 
       {isExam ? (
+        <p className="text-sm text-slate-400">
+          {correct} out of {total} questions answered correctly.
+        </p>
+      ) : null}
+
+      {isMistakesReview ? (
         <p className="text-sm text-slate-400">
           {correct} out of {total} questions answered correctly.
         </p>
@@ -533,7 +575,7 @@ export default function Results() {
       )}
 
       {/* AI Review */}
-      {canLoadAiReview ? (
+      {canLoadAiReview && !isMistakesReview ? (
         <Card variant="elevated" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -844,6 +886,67 @@ export default function Results() {
               );
             })}
           </div>
+        </Card>
+      ) : null}
+
+      {isMistakesReview ? (
+        <Card variant="elevated" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Mistakes Review</h2>
+            <p className="text-sm text-slate-400">
+              Review how you answered each question
+            </p>
+          </div>
+
+          {reviewLoading ? (
+            <div className="space-y-3">
+              <div className="h-4 w-1/3 animate-pulse rounded bg-white/10" />
+              <div className="h-24 w-full animate-pulse rounded-xl bg-white/[0.03]" />
+            </div>
+          ) : reviewError ? (
+            <div className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-4 text-sm text-rose-200">
+              {reviewError}
+            </div>
+          ) : reviewItems.length > 0 ? (
+            <div className="divide-y divide-white/[0.06]">
+              {reviewItems.map((item) => {
+                const isCorrect = item.is_correct;
+                const { before, code, after, language } = parsePrompt(item.prompt);
+                return (
+                  <div key={item.question_id} className="space-y-3 py-4 first:pt-0 last:pb-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <Badge tone={isCorrect ? "success" : "error"}>
+                        {isCorrect ? "Correct" : "Incorrect"}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2 text-sm text-slate-200">
+                      {before ? <p>{before}</p> : null}
+                      {code ? <CodeBlock language={language} code={code} /> : null}
+                      {after ? <p>{after}</p> : null}
+                    </div>
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-slate-300">
+                      <p>
+                        <span className="text-slate-400">Your answer:</span> {item.user_answer || "—"}
+                      </p>
+                      <p className="mt-2">
+                        <span className="text-slate-400">Correct answer:</span> {item.correct_answer_text || item.correct_answer || "—"}
+                      </p>
+                    </div>
+                    {item.explanation ? (
+                      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-slate-300">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Explanation</p>
+                        <p className="mt-2">{item.explanation}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-slate-400">
+              No review data available yet.
+            </div>
+          )}
         </Card>
       ) : null}
 
