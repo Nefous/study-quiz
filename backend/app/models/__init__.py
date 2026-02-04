@@ -4,3 +4,4 @@ from app.models.quiz_attempt import QuizAttempt  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.refresh_token import RefreshToken  # noqa: F401
 from app.models.oauth_account import OAuthAccount  # noqa: F401
+from app.models.question_favorite import QuestionFavorite  # noqa: F401
