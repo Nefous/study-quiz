@@ -102,6 +102,22 @@ export type QuizSummary = {
   timeLimitSec?: number;
 };
 
+export type NextQuizRecommendation = {
+  topic: string;
+  difficulty: Difficulty;
+  size: number;
+  based_on: string;
+};
+
+export type NextQuizRecommendationGenerated = {
+  topic: string;
+  difficulty: Difficulty;
+  size: number;
+  based_on: string;
+  reason: string;
+  prep: string[];
+};
+
 export type AiReviewFocusTopic = {
   topic: string;
   why: string;

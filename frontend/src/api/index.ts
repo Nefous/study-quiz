@@ -9,6 +9,8 @@ import type {
   AttemptCreate,
   AttemptOut,
   AttemptStats,
+  NextQuizRecommendation,
+  NextQuizRecommendationGenerated,
   AiReviewResponse,
   LoginRequest,
   TokenResponse,
@@ -48,6 +50,25 @@ export async function getAttempt(attemptId: string): Promise<AttemptOut> {
 
 export async function getAttemptStats(): Promise<AttemptStats> {
   return request<AttemptStats>(apiUrl("/attempts/stats"));
+}
+
+export async function getNextQuizRecommendation(
+  force = false
+): Promise<NextQuizRecommendation> {
+  const query = force ? "?force=true" : "";
+  return request<NextQuizRecommendation>(
+    apiUrl(`/recommendations/next-quiz${query}`)
+  );
+}
+
+export async function generateNextQuizRecommendation(
+  force = false
+): Promise<NextQuizRecommendationGenerated> {
+  const query = force ? "?force=true" : "";
+  return request<NextQuizRecommendationGenerated>(
+    apiUrl(`/recommendations/next-quiz:generate${query}`),
+    { method: "POST" }
+  );
 }
 
 export async function getAttemptAiReview(

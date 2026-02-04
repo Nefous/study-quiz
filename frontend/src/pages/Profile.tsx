@@ -2,8 +2,8 @@ import { LogOut, UserCircle } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAttemptStats } from "../api";
-import type { AttemptStats } from "../api/types";
+import { getAttemptStats, generateNextQuizRecommendation } from "../api";
+import type { AttemptStats, NextQuizRecommendationGenerated } from "../api/types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
@@ -13,6 +13,8 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [stats, setStats] = useState<AttemptStats | null>(null);
+  const [generatedRecommendation, setGeneratedRecommendation] = useState<NextQuizRecommendationGenerated | null>(null);
+  const [generatedLoading, setGeneratedLoading] = useState(false);
 
   const createdAtLabel = useMemo(() => {
     if (!user?.created_at) return null;
@@ -41,9 +43,36 @@ export default function Profile() {
     };
   }, []);
 
+  useEffect(() => {
+    const cached = sessionStorage.getItem("aiCoachRecommendation");
+    if (!cached) return;
+    try {
+      const parsed = JSON.parse(cached) as NextQuizRecommendationGenerated;
+      setGeneratedRecommendation(parsed);
+    } catch {
+      sessionStorage.removeItem("aiCoachRecommendation");
+    }
+  }, []);
+
   const handleLogout = async () => {
     await logout();
     navigate("/login");
+  };
+
+  const startRecommendedQuiz = () => {
+    if (!generatedRecommendation) return;
+    const params = new URLSearchParams({
+      difficulty: generatedRecommendation.difficulty,
+      mode: "practice",
+      size: String(generatedRecommendation.size)
+    });
+    const topic = generatedRecommendation.topic;
+    if (topic === "mixed" || topic === "mix" || topic === "random") {
+      params.set("topic", "random");
+    } else {
+      params.set("topic", topic);
+    }
+    navigate(`/quiz?${params.toString()}`);
   };
 
   const recentAttempts = stats?.recent_attempts ?? [];
@@ -71,6 +100,7 @@ export default function Profile() {
       random: "Random",
       mix: "Mix"
     };
+    if (topic === "mixed") return "Mixed";
     return mapping[topic] ?? topic;
   };
 
@@ -115,6 +145,77 @@ export default function Profile() {
             Log out
           </Button>
         </div>
+      </Card>
+
+      <Card variant="elevated" className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white">AI Coach</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Personalized next quiz recommendation
+            </p>
+          </div>
+        </div>
+
+        {generatedLoading ? (
+          <div className="space-y-3">
+            <div className="h-4 w-1/3 animate-pulse rounded bg-white/10" />
+            <div className="h-16 animate-pulse rounded-xl bg-white/[0.03]" />
+            <div className="h-12 animate-pulse rounded-xl bg-white/[0.03]" />
+          </div>
+        ) : generatedRecommendation ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
+              <span className="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-medium text-indigo-300">
+                {formatTopicLabel(generatedRecommendation.topic)}
+              </span>
+              <span className="rounded-full bg-white/[0.06] px-3 py-1 text-xs text-slate-300">
+                {generatedRecommendation.difficulty}
+              </span>
+              <span className="rounded-full bg-white/[0.06] px-3 py-1 text-xs text-slate-300">
+                {generatedRecommendation.size} questions
+              </span>
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm text-slate-200">
+                {generatedRecommendation.reason}
+              </p>
+              <ul className="space-y-1 text-sm text-slate-300">
+                {generatedRecommendation.prep.map((item) => (
+                  <li key={item}>• {item}</li>
+                ))}
+              </ul>
+            </div>
+            <Button type="button" onClick={startRecommendedQuiz} className="w-full">
+              Start recommended quiz
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-slate-400">
+              Tap to get a recommended next quiz.
+            </p>
+            <Button
+              type="button"
+              onClick={() => {
+                if (generatedLoading) return;
+                setGeneratedLoading(true);
+                generateNextQuizRecommendation(true)
+                  .then((response) => {
+                    setGeneratedRecommendation(response);
+                    sessionStorage.setItem(
+                      "aiCoachRecommendation",
+                      JSON.stringify(response)
+                    );
+                  })
+                  .finally(() => setGeneratedLoading(false));
+              }}
+              disabled={generatedLoading}
+            >
+              {generatedLoading ? "Loading..." : "AI Coach"}
+            </Button>
+          </div>
+        )}
       </Card>
 
       {stats ? (
