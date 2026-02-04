@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { listFavoriteQuestions, topicLabels, difficultyLabels } from "../api";
-import type { QuizQuestion } from "../api/types";
+import type { FavoriteQuestion } from "../api/types";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -8,7 +8,7 @@ import CodeBlock from "../components/ui/CodeBlock";
 import PageHeader from "../components/ui/PageHeader";
 
 export default function Favorites() {
-  const [favorites, setFavorites] = useState<QuizQuestion[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteQuestion[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -61,6 +61,10 @@ export default function Favorites() {
         <div className="space-y-4">
           {favorites.map((question, index) => {
             const { before, code, after, language } = parsePrompt(question.prompt);
+            const correctAnswer =
+              question.type === "mcq"
+                ? question.correct_answer_text || question.correct_answer || "—"
+                : question.correct_answer || "—";
             return (
               <Card key={question.id} variant="elevated" className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
@@ -78,6 +82,17 @@ export default function Favorites() {
                   {code ? <CodeBlock code={code} language={language} /> : null}
                   {after ? (
                     <p className="whitespace-pre-wrap leading-relaxed">{after}</p>
+                  ) : null}
+                </div>
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-emerald-200">
+                    Correct answer
+                  </p>
+                  <p className="mt-2 text-sm text-emerald-100">{correctAnswer}</p>
+                  {question.explanation ? (
+                    <p className="mt-2 text-xs text-emerald-200/80">
+                      {question.explanation}
+                    </p>
                   ) : null}
                 </div>
               </Card>

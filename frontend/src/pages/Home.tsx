@@ -12,7 +12,9 @@ import {
 } from "lucide-react";
 import {
   getMeta,
+  getNextQuizRecommendation,
   generateNextQuizRecommendation,
+  startRecommendation,
   topicLabels,
   difficultyLabels,
   modeLabels
@@ -99,12 +101,13 @@ export default function Home() {
     navigate(`/quiz?${params.toString()}`);
   };
 
-  const startRecommendedQuiz = () => {
+  const startRecommendedQuiz = async () => {
     if (!isAuthenticated) {
       navigate("/login?returnUrl=%2F");
       return;
     }
     if (!generatedRecommendation) return;
+    const start = await startRecommendation(generatedRecommendation.id);
     const params = new URLSearchParams({
       difficulty: generatedRecommendation.difficulty,
       mode: "practice",
@@ -116,7 +119,7 @@ export default function Home() {
     } else {
       params.set("topic", topic);
     }
-    navigate(`/quiz?${params.toString()}`);
+    navigate(`/quiz?${params.toString()}`, { state: { attemptId: start.attempt_id } });
   };
 
   useEffect(() => {
@@ -191,14 +194,37 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const cached = sessionStorage.getItem("aiCoachRecommendation");
-    if (!cached) return;
-    try {
-      const parsed = JSON.parse(cached) as NextQuizRecommendationGenerated;
-      setGeneratedRecommendation(parsed);
-    } catch {
-      sessionStorage.removeItem("aiCoachRecommendation");
-    }
+    let active = true;
+    const loadActiveRecommendation = async () => {
+      try {
+        const response = await getNextQuizRecommendation();
+        if (!active) return;
+        if (response.id && response.reason && response.prep) {
+          const generated = {
+            id: response.id,
+            topic: response.topic ?? "mixed",
+            difficulty: (response.difficulty ?? "junior") as Difficulty,
+            size: response.size ?? 10,
+            based_on: response.based_on ?? "",
+            reason: response.reason,
+            prep: response.prep
+          };
+          setGeneratedRecommendation(generated);
+          sessionStorage.setItem("aiCoachRecommendation", JSON.stringify(generated));
+          return;
+        }
+        setGeneratedRecommendation(null);
+        sessionStorage.removeItem("aiCoachRecommendation");
+      } catch {
+        if (active) {
+          setGeneratedRecommendation(null);
+        }
+      }
+    };
+    void loadActiveRecommendation();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -340,7 +366,7 @@ export default function Home() {
               <div>
                 <h2 className="text-lg font-semibold text-white">AI Coach</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Personalized next quiz recommendation
+                  Tap to get a recommended next quiz
                 </p>
               </div>
             </div>

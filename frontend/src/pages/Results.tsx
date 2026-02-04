@@ -163,6 +163,7 @@ export default function Results() {
         : selectedTopics[0] ?? settings.topic;
 
     return {
+      attempt_id: attemptId ?? undefined,
       topic: topicValue,
       meta: selectedTopics.length > 1 ? { topics: selectedTopics } : undefined,
       difficulty: settings.difficulty,

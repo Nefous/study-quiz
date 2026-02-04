@@ -2,8 +2,8 @@ import { LogOut, UserCircle } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAttemptStats, generateNextQuizRecommendation } from "../api";
-import type { AttemptStats, NextQuizRecommendationGenerated } from "../api/types";
+import { getAttemptStats, getNextQuizRecommendation, generateNextQuizRecommendation, startRecommendation } from "../api";
+import type { AttemptStats, NextQuizRecommendationGenerated, Difficulty } from "../api/types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
@@ -44,14 +44,37 @@ export default function Profile() {
   }, []);
 
   useEffect(() => {
-    const cached = sessionStorage.getItem("aiCoachRecommendation");
-    if (!cached) return;
-    try {
-      const parsed = JSON.parse(cached) as NextQuizRecommendationGenerated;
-      setGeneratedRecommendation(parsed);
-    } catch {
-      sessionStorage.removeItem("aiCoachRecommendation");
-    }
+    let active = true;
+    const loadActiveRecommendation = async () => {
+      try {
+        const response = await getNextQuizRecommendation();
+        if (!active) return;
+        if (response.id && response.reason && response.prep) {
+          const generated = {
+            id: response.id,
+            topic: response.topic ?? "mixed",
+            difficulty: (response.difficulty ?? "junior") as Difficulty,
+            size: response.size ?? 10,
+            based_on: response.based_on ?? "",
+            reason: response.reason,
+            prep: response.prep
+          };
+          setGeneratedRecommendation(generated);
+          sessionStorage.setItem("aiCoachRecommendation", JSON.stringify(generated));
+          return;
+        }
+        setGeneratedRecommendation(null);
+        sessionStorage.removeItem("aiCoachRecommendation");
+      } catch {
+        if (active) {
+          setGeneratedRecommendation(null);
+        }
+      }
+    };
+    void loadActiveRecommendation();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -59,8 +82,9 @@ export default function Profile() {
     navigate("/login");
   };
 
-  const startRecommendedQuiz = () => {
+  const startRecommendedQuiz = async () => {
     if (!generatedRecommendation) return;
+    const start = await startRecommendation(generatedRecommendation.id);
     const params = new URLSearchParams({
       difficulty: generatedRecommendation.difficulty,
       mode: "practice",
@@ -72,7 +96,7 @@ export default function Profile() {
     } else {
       params.set("topic", topic);
     }
-    navigate(`/quiz?${params.toString()}`);
+    navigate(`/quiz?${params.toString()}`, { state: { attemptId: start.attempt_id } });
   };
 
   const recentAttempts = stats?.recent_attempts ?? [];
@@ -152,7 +176,7 @@ export default function Profile() {
           <div>
             <h2 className="text-lg font-semibold text-white">AI Coach</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Personalized next quiz recommendation
+              Tap to get a recommended next quiz
             </p>
           </div>
         </div>

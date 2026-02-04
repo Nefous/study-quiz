@@ -22,6 +22,10 @@ export type QuizQuestion = {
   correct_answer?: string | null;
 };
 
+export type FavoriteQuestion = QuizQuestion & {
+  correct_answer_text?: string | null;
+};
+
 export type QuizGenerateResponse = {
   quiz_id: string;
   questions: QuizQuestion[];
@@ -47,6 +51,7 @@ export type AttemptAnswer = {
 };
 
 export type AttemptCreate = {
+  attempt_id?: string | null;
   topic: string;
   difficulty: string;
   mode: QuizMode;
@@ -103,13 +108,17 @@ export type QuizSummary = {
 };
 
 export type NextQuizRecommendation = {
-  topic: string;
-  difficulty: Difficulty;
-  size: number;
-  based_on: string;
+  id?: string | null;
+  topic?: string | null;
+  difficulty?: Difficulty | null;
+  size?: number | null;
+  based_on?: string | null;
+  reason?: string | null;
+  prep?: string[] | null;
 };
 
 export type NextQuizRecommendationGenerated = {
+  id: string;
   topic: string;
   difficulty: Difficulty;
   size: number;

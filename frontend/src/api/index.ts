@@ -10,6 +10,7 @@ import type {
   AttemptOut,
   AttemptStats,
   QuizQuestion,
+  FavoriteQuestion,
   NextQuizRecommendation,
   NextQuizRecommendationGenerated,
   AiReviewResponse,
@@ -67,7 +68,16 @@ export async function generateNextQuizRecommendation(
 ): Promise<NextQuizRecommendationGenerated> {
   const query = force ? "?force=true" : "";
   return request<NextQuizRecommendationGenerated>(
-    apiUrl(`/recommendations/next-quiz:generate${query}`),
+    apiUrl(`/recommendations/next-quiz/generate${query}`),
+    { method: "POST" }
+  );
+}
+
+export async function startRecommendation(
+  recommendationId: string
+): Promise<{ attempt_id: string }> {
+  return request<{ attempt_id: string }>(
+    apiUrl(`/recommendations/${recommendationId}/start`),
     { method: "POST" }
   );
 }
@@ -97,14 +107,14 @@ export async function listFavoriteQuestions(
   offset = 0,
   topic?: string,
   difficulty?: string
-): Promise<QuizQuestion[]> {
+): Promise<FavoriteQuestion[]> {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset)
   });
   if (topic) params.set("topic", topic);
   if (difficulty) params.set("difficulty", difficulty);
-  return request<QuizQuestion[]>(apiUrl(`/questions/favorites?${params.toString()}`));
+  return request<FavoriteQuestion[]>(apiUrl(`/questions/favorites?${params.toString()}`));
 }
 
 export async function login(payload: LoginRequest): Promise<TokenResponse> {
