@@ -203,6 +203,8 @@ export type User = {
   email: string;
   created_at: string;
   first_name?: string | null;
+  is_admin?: boolean;
+  role?: string | null;
 };
 
 export type LoginRequest = {
@@ -213,4 +215,98 @@ export type LoginRequest = {
 export type TokenResponse = {
   access_token: string;
   user: User;
+};
+
+export type QuestionCandidateStatus =
+  | "generated"
+  | "validated"
+  | "failed"
+  | "approved"
+  | "rejected"
+  | "published";
+
+export type QuestionCandidatePayload = {
+  topic: string;
+  difficulty: string;
+  type: QuestionType | string;
+  prompt: string;
+  explanation?: string | null;
+  choices?: { key: string; text: string }[] | null;
+  answer?: string | null;
+  code?: string | null;
+  expected_output?: string | null;
+};
+
+export type QuestionCandidateValidationReport = {
+  schema?: { ok: boolean; errors?: string[] };
+  dedupe?: {
+    ok: boolean;
+    reason?: string;
+    candidate_id?: string;
+    question_id?: string;
+  };
+  code_output?: {
+    ok?: boolean;
+    timeout?: boolean;
+    exit_code?: number | null;
+    stdout?: string;
+    stderr?: string;
+  };
+  error?: string;
+};
+
+export type QuestionCandidate = {
+  id: string;
+  topic: string;
+  difficulty: string;
+  type: QuestionType | string;
+  status: QuestionCandidateStatus;
+  created_at: string;
+  updated_at?: string | null;
+  approved_by_user_id?: string | null;
+  approved_at?: string | null;
+  published_at?: string | null;
+  payload_json?: QuestionCandidatePayload | null;
+  validation_report_json?: QuestionCandidateValidationReport | null;
+  raw_ai_output?: string | null;
+};
+
+export type QuestionCandidateValidateResponse = {
+  id: string;
+  status: QuestionCandidateStatus;
+  validation_report?: QuestionCandidateValidationReport | null;
+  simhash?: string | null;
+};
+
+export type QuestionCandidateApproveResponse = {
+  id: string;
+  status: QuestionCandidateStatus;
+  approved_by_user_id?: string | null;
+  approved_at?: string | null;
+};
+
+export type QuestionCandidateRejectResponse = {
+  id: string;
+  status: QuestionCandidateStatus;
+  validation_report?: QuestionCandidateValidationReport | null;
+};
+
+export type QuestionCandidatePublishResponse = {
+  candidate: {
+    id: string;
+    status: QuestionCandidateStatus;
+    published_at?: string | null;
+  };
+  created_question_id?: string | null;
+};
+
+export type QuestionCandidateUpdateResponse = {
+  id: string;
+  status: QuestionCandidateStatus;
+};
+
+export type QuestionOptionsResponse = {
+  topics: string[];
+  difficulties: string[];
+  types: string[];
 };

@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from "react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Github, History, Home, RefreshCw, Star, UserCircle } from "lucide-react";
+import { Github, History, Home, RefreshCw, ShieldCheck, Star, UserCircle } from "lucide-react";
 import Background from "./Background";
 import { cn } from "../ui/cn";
 import BrandLogo from "../BrandLogo";
@@ -16,10 +16,12 @@ const navLinks = [
 ];
 
 export default function AppShell({ children }: PropsWithChildren) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [toast, setToast] = useState<{ message: string; tone?: "info" | "error" } | null>(null);
   const [startingMistakes, setStartingMistakes] = useState(false);
+  const showAdminLink =
+    isAuthenticated && (user?.is_admin === true || user?.role === "admin");
 
   useEffect(() => {
     if (!toast) return;
@@ -116,6 +118,23 @@ export default function AppShell({ children }: PropsWithChildren) {
                 <span className="hidden sm:inline">{label}</span>
               </NavLink>
             ))}
+
+            {showAdminLink ? (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
+                    isActive
+                      ? "bg-white/10 text-white"
+                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  )
+                }
+              >
+                <ShieldCheck size={16} />
+                <span className="hidden sm:inline">Admin</span>
+              </NavLink>
+            ) : null}
 
             <button
               type="button"

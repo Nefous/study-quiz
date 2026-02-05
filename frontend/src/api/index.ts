@@ -19,7 +19,13 @@ import type {
   AiReviewResponse,
   LoginRequest,
   TokenResponse,
-  User
+  User,
+  QuestionCandidate,
+  QuestionCandidateApproveResponse,
+  QuestionCandidatePublishResponse,
+  QuestionCandidateRejectResponse,
+  QuestionCandidateUpdateResponse,
+  QuestionCandidateValidateResponse
 } from "./types";
 import { apiUrl, getHint, request } from "./client";
 
@@ -177,6 +183,76 @@ export async function logout(): Promise<{ ok: boolean }> {
 
 export async function me(): Promise<User> {
   return request<User>(apiUrl("/auth/me"));
+}
+
+export async function listQuestionCandidates(
+  status?: string,
+  limit = 50,
+  offset = 0
+): Promise<QuestionCandidate[]> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset)
+  });
+  if (status) {
+    params.set("status", status);
+  }
+  return request<QuestionCandidate[]>(
+    apiUrl(`/admin/question-candidates?${params.toString()}`)
+  );
+}
+
+export async function validateQuestionCandidate(
+  candidateId: string
+): Promise<QuestionCandidateValidateResponse> {
+  return request<QuestionCandidateValidateResponse>(
+    apiUrl(`/admin/question-candidates/${candidateId}/validate`),
+    { method: "POST" }
+  );
+}
+
+export async function approveQuestionCandidate(
+  candidateId: string
+): Promise<QuestionCandidateApproveResponse> {
+  return request<QuestionCandidateApproveResponse>(
+    apiUrl(`/admin/question-candidates/${candidateId}/approve`),
+    { method: "POST" }
+  );
+}
+
+export async function rejectQuestionCandidate(
+  candidateId: string,
+  reason?: string | null
+): Promise<QuestionCandidateRejectResponse> {
+  return request<QuestionCandidateRejectResponse>(
+    apiUrl(`/admin/question-candidates/${candidateId}/reject`),
+    {
+      method: "POST",
+      body: JSON.stringify({ reason: reason ?? null })
+    }
+  );
+}
+
+export async function publishQuestionCandidate(
+  candidateId: string
+): Promise<QuestionCandidatePublishResponse> {
+  return request<QuestionCandidatePublishResponse>(
+    apiUrl(`/admin/question-candidates/${candidateId}/publish`),
+    { method: "POST" }
+  );
+}
+
+export async function updateQuestionCandidate(
+  candidateId: string,
+  payloadJson: Record<string, unknown>
+): Promise<QuestionCandidateUpdateResponse> {
+  return request<QuestionCandidateUpdateResponse>(
+    apiUrl(`/admin/question-candidates/${candidateId}`),
+    {
+      method: "PATCH",
+      body: JSON.stringify({ payload_json: payloadJson })
+    }
+  );
 }
 
 export { getHint };
