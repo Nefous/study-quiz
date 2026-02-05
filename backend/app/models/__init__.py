@@ -7,3 +7,4 @@ from app.models.oauth_account import OAuthAccount  # noqa: F401
 from app.models.question_favorite import QuestionFavorite  # noqa: F401
 from app.models.ai_recommendation import AiRecommendation  # noqa: F401
 from app.models.attempt_answer import AttemptAnswer  # noqa: F401
+from app.models.question_candidate import QuestionCandidate  # noqa: F401

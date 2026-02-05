@@ -8,6 +8,7 @@ from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.questions import router as questions_router
 from app.api.v1.endpoints.quiz import router as quiz_router
 from app.api.v1.endpoints.recommendations import router as recommendations_router
+from app.api.v1.endpoints.admin_question_candidates import router as admin_question_candidates_router
 
 api_router = APIRouter()
 
@@ -19,3 +20,4 @@ api_router.include_router(hints_router)
 api_router.include_router(attempts_router)
 api_router.include_router(quiz_router, tags=["quiz"])
 api_router.include_router(recommendations_router)
+api_router.include_router(admin_question_candidates_router)

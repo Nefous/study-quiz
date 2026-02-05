@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     GROQ_HINT_MAX_TOKENS: int = Field(default=180)
     GROQ_REVIEW_TEMPERATURE: float = Field(default=0.4)
     GROQ_REVIEW_MAX_TOKENS: int = Field(default=800)
+    ADMIN_EMAILS: list[str] = Field(default=[])
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[3] / ".env",
@@ -94,6 +95,20 @@ class Settings(BaseSettings):
             trimmed = trimmed[:-1]
         return trimmed
 
+    @field_validator("ADMIN_EMAILS", mode="before")
+    @classmethod
+    def _parse_admin_emails(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            return [item.strip() for item in raw.split(",") if item.strip()]
+        if isinstance(value, (list, tuple)):
+            return [str(item).strip() for item in value if str(item).strip()]
+        return []
+
     @property
     def cors_origins_list(self) -> list[str]:
         return self.CORS_ORIGINS
@@ -102,3 +117,4 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+

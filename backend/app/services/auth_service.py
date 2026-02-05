@@ -32,7 +32,7 @@ def hash_refresh_token(token: str) -> str:
 @lru_cache
 def _load_private_key() -> str:
     path = Path(settings.JWT_PRIVATE_KEY_PATH)
-    return path.read_text(encoding="utf-8")
+    return path.read_text(encoding="utf-8") 
 
 
 @lru_cache
@@ -110,6 +110,12 @@ async def get_current_user(
     user = await repo.get_by_id(user_uuid)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+
+async def get_admin_user(user=Depends(get_current_user)):
+    if not settings.ADMIN_EMAILS or user.email not in settings.ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
 
