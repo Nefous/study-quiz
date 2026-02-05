@@ -6,6 +6,7 @@ import subprocess
 import asyncio
 from typing import Any
 
+from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -279,6 +280,16 @@ async def validate_candidate_by_id(
     return await validate_candidate(session, candidate)
 
 
+async def get_candidate_by_id(
+    session: AsyncSession,
+    candidate_id: str,
+) -> QuestionCandidate | None:
+    result = await session.execute(
+        select(QuestionCandidate).where(QuestionCandidate.id == candidate_id)
+    )
+    return result.scalar_one_or_none()
+
+
 async def validate_candidates_batch(
     session: AsyncSession,
     limit: int,
@@ -294,3 +305,178 @@ async def validate_candidates_batch(
     for candidate in items:
         validated.append(await validate_candidate(session, candidate))
     return validated
+
+
+def _merge_report(report: dict | None, patch: dict) -> dict:
+    base = report.copy() if isinstance(report, dict) else {}
+    base.update(patch)
+    return base
+
+
+async def list_candidates(
+    session: AsyncSession,
+    status: str | None,
+    limit: int,
+    offset: int,
+) -> list[QuestionCandidate]:
+    stmt = select(QuestionCandidate).order_by(QuestionCandidate.created_at.desc())
+    if status:
+        stmt = stmt.where(QuestionCandidate.status == status)
+    stmt = stmt.limit(limit).offset(offset)
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+async def approve_candidate(
+    session: AsyncSession,
+    candidate: QuestionCandidate,
+    user_id,
+) -> QuestionCandidate:
+    if candidate.status == "generated":
+        candidate = await validate_candidate(session, candidate)
+    if candidate.status not in {"validated", "generated"}:
+        return candidate
+    if candidate.status == "generated":
+        return candidate
+    candidate.status = "approved"
+    candidate.approved_by_user_id = user_id
+    candidate.approved_at = datetime.utcnow()
+    await session.commit()
+    await session.refresh(candidate)
+    return candidate
+
+
+async def reject_candidate(
+    session: AsyncSession,
+    candidate: QuestionCandidate,
+    user_id,
+    reason: str | None,
+) -> QuestionCandidate:
+    moderation = {
+        "rejected": True,
+        "reason": reason,
+        "at": datetime.utcnow().isoformat(),
+        "by": str(user_id),
+    }
+    candidate.validation_report_json = _merge_report(
+        candidate.validation_report_json,
+        {"moderation": moderation},
+    )
+    candidate.status = "rejected"
+    await session.commit()
+    await session.refresh(candidate)
+    return candidate
+
+
+def _payload_to_question_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    prompt = payload.get("prompt") or ""
+    qtype = payload.get("type")
+    if qtype == "code_output":
+        code = payload.get("code") or ""
+        if code and "```" not in prompt:
+            prompt = f"{prompt}\n\n```python\n{code}\n```"
+    choices = None
+    if qtype == "mcq":
+        choices = {
+            item.get("key"): item.get("text")
+            for item in (payload.get("choices") or [])
+            if item.get("key")
+        }
+    return {
+        "topic": payload.get("topic"),
+        "difficulty": payload.get("difficulty"),
+        "type": qtype,
+        "prompt": prompt,
+        "choices": choices,
+        "correct_answer": payload.get("answer") or payload.get("expected_output") or "",
+        "explanation": payload.get("explanation"),
+    }
+
+
+async def publish_candidate(
+    session: AsyncSession,
+    candidate: QuestionCandidate,
+) -> tuple[QuestionCandidate, str | None]:
+    if candidate.status == "published" or candidate.published_at is not None:
+        report = candidate.validation_report_json or {}
+        published = report.get("published") if isinstance(report, dict) else None
+        question_id = (published or {}).get("question_id") if published else None
+        if question_id:
+            return candidate, question_id
+        ok, normalized, _ = validate_candidate_payload(candidate.payload_json)
+        if ok and normalized:
+            fields = _payload_to_question_fields(normalized)
+            existing_stmt = select(Question).where(
+                Question.topic == fields["topic"],
+                Question.difficulty == fields["difficulty"],
+                Question.type == fields["type"],
+                Question.prompt == fields["prompt"],
+                Question.correct_answer == fields["correct_answer"],
+            )
+            existing = await session.execute(existing_stmt)
+            question = existing.scalar_one_or_none()
+            if question:
+                candidate.validation_report_json = _merge_report(
+                    candidate.validation_report_json,
+                    {"published": {"question_id": str(question.id)}},
+                )
+                await session.commit()
+                await session.refresh(candidate)
+                return candidate, str(question.id)
+        return candidate, None
+
+    if candidate.status != "approved":
+        return candidate, None
+
+    ok, normalized, errors = validate_candidate_payload(candidate.payload_json)
+    if not ok or normalized is None:
+        candidate.status = "failed"
+        candidate.validation_report_json = _merge_report(
+            candidate.validation_report_json,
+            {"schema": {"ok": False, "errors": errors}},
+        )
+        await session.commit()
+        await session.refresh(candidate)
+        return candidate, None
+
+    fields = _payload_to_question_fields(normalized)
+    existing_stmt = select(Question).where(
+        Question.topic == fields["topic"],
+        Question.difficulty == fields["difficulty"],
+        Question.type == fields["type"],
+        Question.prompt == fields["prompt"],
+        Question.correct_answer == fields["correct_answer"],
+    )
+    existing = await session.execute(existing_stmt)
+    question = existing.scalar_one_or_none()
+    if not question:
+        question = Question(**fields, seed_key=hashlib.sha256(fields["prompt"].encode("utf-8")).hexdigest()[:64])
+        session.add(question)
+        await session.flush()
+
+    candidate.status = "published"
+    candidate.published_at = datetime.utcnow()
+    candidate.validation_report_json = _merge_report(
+        candidate.validation_report_json,
+        {"published": {"question_id": str(question.id)}},
+    )
+    await session.commit()
+    await session.refresh(candidate)
+    return candidate, str(question.id)
+
+
+async def update_candidate_payload(
+    session: AsyncSession,
+    candidate: QuestionCandidate,
+    payload_json: dict[str, Any],
+) -> QuestionCandidate:
+    candidate.payload_json = payload_json
+    candidate.status = "generated"
+    candidate.simhash = None
+    candidate.validation_report_json = None
+    candidate.approved_at = None
+    candidate.approved_by_user_id = None
+    candidate.published_at = None
+    await session.commit()
+    await session.refresh(candidate)
+    return candidate

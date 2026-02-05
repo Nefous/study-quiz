@@ -114,8 +114,33 @@ async def get_current_user(
 
 
 async def get_admin_user(user=Depends(get_current_user)):
-    if not settings.ADMIN_EMAILS or user.email not in settings.ADMIN_EMAILS:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    if getattr(user, "is_admin", False) or getattr(user, "role", None) == "admin":
+        return user
+    email = (user.email or "").lower()
+    if (
+        settings.ENV.lower() in {"dev", "development", "local"}
+        and settings.ADMIN_EMAILS
+        and email in settings.ADMIN_EMAILS
+    ):
+        return user
+    raise HTTPException(status_code=403, detail="Admin access required")
+
+
+def build_user_out(user) -> UserOut:
+    payload = UserOut.model_validate(user).model_dump()
+    is_admin = bool(payload.get("is_admin") or payload.get("role") == "admin")
+    email = (payload.get("email") or "").lower()
+    if (
+        not is_admin
+        and settings.ENV.lower() in {"dev", "development", "local"}
+        and settings.ADMIN_EMAILS
+        and email in settings.ADMIN_EMAILS
+    ):
+        is_admin = True
+    if is_admin:
+        payload["is_admin"] = True
+        payload["role"] = payload.get("role") or "admin"
+    return UserOut(**payload)
     return user
 
 

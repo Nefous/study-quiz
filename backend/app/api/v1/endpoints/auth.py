@@ -11,6 +11,7 @@ from app.repositories.oauth_account_repo import OAuthAccountRepository
 from app.repositories.user_repo import UserRepository
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut
 from app.services.auth_service import (
+    build_user_out,
     clear_refresh_cookie,
     create_access_token,
     create_oauth_state,
@@ -109,7 +110,7 @@ async def register(
     refresh_token = await issue_refresh_token(session, user.id)
     set_refresh_cookie(response, refresh_token)
     access_token = create_access_token(str(user.id), user.email)
-    return TokenResponse(access_token=access_token, user=UserOut.model_validate(user))
+    return TokenResponse(access_token=access_token, user=build_user_out(user))
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -126,7 +127,7 @@ async def login(
     refresh_token = await issue_refresh_token(session, user.id)
     set_refresh_cookie(response, refresh_token)
     access_token = create_access_token(str(user.id), user.email)
-    return TokenResponse(access_token=access_token, user=UserOut.model_validate(user))
+    return TokenResponse(access_token=access_token, user=build_user_out(user))
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -147,7 +148,7 @@ async def refresh(
 
     set_refresh_cookie(response, new_token)
     access_token = create_access_token(str(user.id), user.email)
-    return TokenResponse(access_token=access_token, user=UserOut.model_validate(user))
+    return TokenResponse(access_token=access_token, user=build_user_out(user))
 
 
 @router.post("/logout")
@@ -170,7 +171,7 @@ async def logout(
 
 @router.get("/me", response_model=UserOut)
 async def me(user=Depends(get_current_user)) -> UserOut:
-    return UserOut.model_validate(user)
+    return build_user_out(user)
 
 
 @router.get("/google/login")

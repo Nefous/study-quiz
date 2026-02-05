@@ -63,9 +63,15 @@ def _validate_question(item: dict) -> QuestionCreateInternal:
 
 
 def _load_questions() -> list[QuestionCreateInternal]:
-    data = json.loads(SEED_FILE.read_text(encoding="utf-8"))
+    try:
+        raw = SEED_FILE.read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.error("Seed file parse failed (%s): %s", SEED_FILE, exc)
+        return []
     if not isinstance(data, list):
-        raise ValueError("Seed file must contain a JSON array")
+        logger.error("Seed file must contain a JSON array")
+        return []
 
     items: list[QuestionCreateInternal] = []
     for item in data:
@@ -78,6 +84,8 @@ def _load_questions() -> list[QuestionCreateInternal]:
 
 async def seed_if_empty() -> bool:
     questions = _load_questions()
+    if not questions:
+        return False
     async with AsyncSessionLocal() as session:
         repo = QuestionRepository(session)
         if questions:

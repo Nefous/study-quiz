@@ -20,7 +20,7 @@ Each object MUST include:
 - explanation (optional)
 
 For mcq:
-- choices: list of {key, text}
+- choices: list of {{key, text}}
 - answer: must match a choice key or text exactly
 
 For code_output:
