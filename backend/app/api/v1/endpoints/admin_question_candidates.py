@@ -11,6 +11,8 @@ from app.db.session import get_session
 from app.services.auth_service import get_admin_user
 from app.integrations.question_candidates_chain import (
     generate_question_candidates,
+    generate_question_candidates_items,
+    CandidateParseError,
     parse_candidates_json,
 )
 from app.services.question_candidates_service import (
@@ -79,10 +81,21 @@ async def generate_question_candidates_endpoint(
         "qtype": qtype,
     }
 
-    raw_output = await generate_question_candidates(payload)
-
     try:
-        items = parse_candidates_json(raw_output)
+        items = await generate_question_candidates_items(payload)
+    except CandidateParseError as exc:
+        logger.warning("question candidate parse failed: %s", exc)
+        await record_parse_failure(
+            session=session,
+            topic=topic,
+            difficulty=body.difficulty,
+            qtype=qtype,
+            raw_output=exc.raw_output,
+            error=str(exc),
+            prompt_version=body.prompt_version,
+            source_model=settings.GROQ_MODEL,
+        )
+        return {"created": 0, "failed": 1, "candidate_ids": []}
     except Exception as exc:
         logger.warning("question candidate parse failed: %s", exc)
         await record_parse_failure(
@@ -90,7 +103,7 @@ async def generate_question_candidates_endpoint(
             topic=topic,
             difficulty=body.difficulty,
             qtype=qtype,
-            raw_output=raw_output,
+            raw_output=None,
             error=str(exc),
             prompt_version=body.prompt_version,
             source_model=settings.GROQ_MODEL,
