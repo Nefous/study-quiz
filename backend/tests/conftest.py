@@ -40,7 +40,7 @@ def _apply_env_defaults() -> None:
 _apply_env_defaults()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest.fixture(scope="session")
 def event_loop():
     loop = asyncio.new_event_loop()
     try:
@@ -76,6 +76,18 @@ async def async_engine(database_url: str):
         await engine.dispose()
 
 
+@pytest_asyncio.fixture(scope="session")
+async def configure_app_db(async_engine) -> None:
+    from app.db import session as session_module
+
+    session_module.engine = async_engine
+    session_module.AsyncSessionLocal = async_sessionmaker(
+        async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+
+
 @pytest_asyncio.fixture()
 async def db_session(async_engine) -> AsyncSession:
     session_maker = async_sessionmaker(async_engine, expire_on_commit=False)
@@ -107,7 +119,7 @@ def app_instance(database_url: str):
 
 
 @pytest_asyncio.fixture()
-async def async_client(app_instance):
+async def async_client(app_instance, configure_app_db):
     transport = ASGITransport(app=app_instance)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
