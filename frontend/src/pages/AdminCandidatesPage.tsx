@@ -25,6 +25,7 @@ import {
   rejectCandidate,
   validateCandidate
 } from "../api/adminCandidatesApi";
+import AdminNav from "../components/admin/AdminNav";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -383,6 +384,7 @@ export default function AdminCandidatesPage() {
           </Button>
         }
       />
+      <AdminNav />
 
       {toast ? (
         <div className="fixed right-4 top-20 z-50">

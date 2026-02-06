@@ -12,6 +12,7 @@ import Quiz from "./pages/Quiz";
 import Results from "./pages/Results";
 import AuthCallback from "./pages/AuthCallback";
 import AdminCandidatesPage from "./pages/AdminCandidatesPage";
+import AdminQuestionsPage from "./pages/AdminQuestionsPage";
 import { getAdminUser } from "./api/adminCandidatesApi";
 import type { ApiError } from "./api/types";
 
@@ -172,6 +173,16 @@ export default function App() {
             <RequireAuth>
               <AdminRoute>
                 <AdminCandidatesPage />
+              </AdminRoute>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/questions"
+          element={
+            <RequireAuth>
+              <AdminRoute>
+                <AdminQuestionsPage />
               </AdminRoute>
             </RequireAuth>
           }

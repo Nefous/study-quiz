@@ -273,6 +273,36 @@ export type QuestionCandidate = {
   raw_ai_output?: string | null;
 };
 
+export type AdminQuestionListItem = {
+  id: string;
+  topic: Topic | string;
+  difficulty: Difficulty | string;
+  type: QuestionType | string;
+  prompt: string;
+  created_at?: string | null;
+  archived_at?: string | null;
+};
+
+export type AdminQuestionDetail = {
+  id: string;
+  topic: Topic | string;
+  difficulty: Difficulty | string;
+  type: QuestionType | string;
+  prompt: string;
+  code?: string | null;
+  choices?: Record<string, string> | null;
+  correct_answer?: string | null;
+  explanation?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  archived_at?: string | null;
+};
+
+export type AdminQuestionListResponse = {
+  items: AdminQuestionListItem[];
+  total: number;
+};
+
 export type QuestionCandidateValidateResponse = {
   id: string;
   status: QuestionCandidateStatus;
