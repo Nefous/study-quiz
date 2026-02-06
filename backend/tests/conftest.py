@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 from pathlib import Path
@@ -37,6 +38,15 @@ def _apply_env_defaults() -> None:
 
 
 _apply_env_defaults()
+
+
+@pytest_asyncio.fixture(scope="session")
+def event_loop():
+    loop = asyncio.new_event_loop()
+    try:
+        yield loop
+    finally:
+        loop.close()
 
 
 @pytest.fixture(scope="session")
