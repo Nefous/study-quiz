@@ -98,7 +98,7 @@ def app_instance(database_url: str):
 
 @pytest_asyncio.fixture()
 async def async_client(app_instance):
-    transport = ASGITransport(app=app_instance, lifespan="off")
+    transport = ASGITransport(app=app_instance)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
