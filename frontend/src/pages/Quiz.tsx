@@ -570,7 +570,10 @@ export default function Quiz() {
     ? (remainingSeconds / timeLimitSeconds) * PERCENT_MULTIPLIER
     : 0;
 
-  const { before, code, after, language } = parsePrompt(question.prompt);
+  const { before, code, after, language } = parsePrompt(
+    question.prompt,
+    question.code ?? null
+  );
 
   const handleSubmit = () => {
     if (isSubmitted) return;
@@ -1032,14 +1035,29 @@ function getExamTimeLimit(size: number) {
   return 12 * 60;
 }
 
-function parsePrompt(prompt: string) {
-  const match = prompt.match(/```(\w+)?\n([\s\S]*?)```/);
-  if (!match) {
-    return { before: prompt, code: "", after: "", language: "python" };
+function parsePrompt(prompt: string, codeField: string | null) {
+  const normalizedPrompt = prompt ?? "";
+  const trimmedCode = codeField?.trim();
+  const fenceMatch = normalizedPrompt.match(/```(\w+)?\n([\s\S]*?)```/);
+
+  if (trimmedCode) {
+    if (!fenceMatch) {
+      return { before: normalizedPrompt.trim(), code: trimmedCode, after: "", language: "python" };
+    }
+    const [block] = fenceMatch;
+    const before = normalizedPrompt.slice(0, fenceMatch.index ?? 0).trim();
+    const after = normalizedPrompt
+      .slice((fenceMatch.index ?? 0) + block.length)
+      .trim();
+    return { before, code: trimmedCode, after, language: "python" };
   }
 
-  const [block, lang = "python", code] = match;
-  const before = prompt.slice(0, match.index ?? 0).trim();
-  const after = prompt.slice((match.index ?? 0) + block.length).trim();
+  if (!fenceMatch) {
+    return { before: normalizedPrompt, code: "", after: "", language: "python" };
+  }
+
+  const [block, lang = "python", code] = fenceMatch;
+  const before = normalizedPrompt.slice(0, fenceMatch.index ?? 0).trim();
+  const after = normalizedPrompt.slice((fenceMatch.index ?? 0) + block.length).trim();
   return { before, code, after, language: lang || "python" };
 }

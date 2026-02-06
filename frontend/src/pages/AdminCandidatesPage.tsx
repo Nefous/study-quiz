@@ -126,6 +126,18 @@ const normalizeOptions = (raw: unknown) => {
   };
 };
 
+const parsePrompt = (prompt: string) => {
+  const match = prompt.match(/```(\w+)?\n([\s\S]*?)```/);
+  if (!match) {
+    return { before: prompt, code: "", after: "", language: "python" };
+  }
+
+  const [block, lang = "python", code] = match;
+  const before = prompt.slice(0, match.index ?? 0).trim();
+  const after = prompt.slice((match.index ?? 0) + block.length).trim();
+  return { before, code, after, language: lang || "python" };
+};
+
 export default function AdminCandidatesPage() {
   const [status, setStatus] = useState<QuestionCandidateStatus | "all">("all");
   const [topic, setTopic] = useState("");
@@ -592,7 +604,18 @@ export default function AdminCandidatesPage() {
             <div className="mt-6 space-y-4 text-sm text-slate-200">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Prompt</p>
-                <p className="mt-2 whitespace-pre-line">{activeCandidate.payload_json?.prompt}</p>
+                {(() => {
+                  const { before, code, after, language } = parsePrompt(
+                    activeCandidate.payload_json?.prompt ?? ""
+                  );
+                  return (
+                    <div className="mt-2 space-y-3">
+                      {before ? <p className="whitespace-pre-wrap">{before}</p> : null}
+                      {code ? <CodeBlock code={code} language={language} /> : null}
+                      {after ? <p className="whitespace-pre-wrap">{after}</p> : null}
+                    </div>
+                  );
+                })()}
               </div>
 
               {activeCandidate.payload_json?.type === "mcq" &&

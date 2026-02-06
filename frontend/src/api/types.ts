@@ -19,6 +19,7 @@ export type QuizQuestion = {
   difficulty: Difficulty;
   type: QuestionType;
   prompt: string;
+  code?: string | null;
   choices?: Record<"A" | "B" | "C" | "D", string> | null;
   explanation?: string | null;
   correct_answer?: string | null;
@@ -95,6 +96,7 @@ export type AttemptRecentScore = {
 export type AttemptReviewItem = {
   question_id: string;
   prompt: string;
+  code?: string | null;
   choices?: Record<string, string> | null;
   correct_answer?: string | null;
   correct_answer_text?: string | null;
