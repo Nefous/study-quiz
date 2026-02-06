@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+import pytest_asyncio
 from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport
@@ -56,7 +57,7 @@ def apply_migrations(database_url: str) -> None:
     command.upgrade(alembic_cfg, "head")
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session")
 async def async_engine(database_url: str):
     engine = create_async_engine(database_url, echo=False, pool_pre_ping=True)
     try:
@@ -65,14 +66,14 @@ async def async_engine(database_url: str):
         await engine.dispose()
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def db_session(async_engine) -> AsyncSession:
     session_maker = async_sessionmaker(async_engine, expire_on_commit=False)
     async with session_maker() as session:
         yield session
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def truncate_db(async_engine) -> None:
     from app.db.base import Base
     import app.models  # noqa: F401
@@ -95,14 +96,14 @@ def app_instance(database_url: str):
     return app
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def async_client(app_instance):
     transport = ASGITransport(app=app_instance, lifespan="off")
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def auth_headers(async_client) -> dict[str, str]:
     email = f"user_{uuid4().hex}@example.com"
     response = await async_client.post(
