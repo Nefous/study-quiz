@@ -340,6 +340,7 @@ async def get_attempt_review(
             AttemptReviewItem(
                 question_id=str(question.id),
                 prompt=question.prompt,
+                code=question.code,
                 choices=question.choices,
                 correct_answer=question.correct_answer,
                 correct_answer_text=correct_answer_text,

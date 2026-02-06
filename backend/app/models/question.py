@@ -18,6 +18,7 @@ class Question(Base):
     difficulty: Mapped[Difficulty] = mapped_column(String(20), nullable=False)
     type: Mapped[QuestionType] = mapped_column(String(20), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    code: Mapped[str | None] = mapped_column(Text, nullable=True)
     choices: Mapped[dict[str, str] | None] = mapped_column(
         JSONB().with_variant(JSON(), "sqlite"), nullable=True
     )

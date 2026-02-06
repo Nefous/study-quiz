@@ -20,6 +20,7 @@ class QuizQuestionOut(BaseModel):
     difficulty: Difficulty
     type: QuestionType
     prompt: str
+    code: str | None = None
     choices: dict[str, str] | None = None
     explanation: str | None = None
     correct_answer: str | None = None

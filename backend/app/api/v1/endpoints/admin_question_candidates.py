@@ -37,7 +37,7 @@ class QuestionCandidateGenerateRequest(BaseModel):
     difficulty: str
     count: int = Field(default=20, ge=5, le=50)
     qtype: str | None = None
-    n: int | None = None
+    n: int | None = Field(default=None, ge=5, le=50)
     type: str | None = None
     prompt_version: str | None = None
 

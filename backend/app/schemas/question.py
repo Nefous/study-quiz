@@ -12,6 +12,7 @@ class QuestionOut(BaseModel):
     difficulty: Difficulty
     type: QuestionType
     prompt: str
+    code: str | None = None
     choices: dict[str, str] | None = None
     correct_answer: str
     explanation: str | None = None
@@ -30,6 +31,7 @@ class QuestionCreate(BaseModel):
     difficulty: Difficulty
     type: QuestionType
     prompt: str
+    code: str | None = None
     choices: dict[str, str] | None = None
     correct_answer: str
     explanation: str | None = None

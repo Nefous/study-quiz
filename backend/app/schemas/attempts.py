@@ -101,6 +101,7 @@ class AttemptStats(BaseModel):
 class AttemptReviewItem(BaseModel):
     question_id: str
     prompt: str
+    code: str | None = None
     choices: dict[str, str] | None = None
     correct_answer: str | None = None
     correct_answer_text: str | None = None

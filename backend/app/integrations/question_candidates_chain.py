@@ -13,30 +13,54 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """
-You are generating interview practice questions for a Python quiz app.
+You are generating interview-grade Python quiz questions.
 
-Return ONLY a valid JSON ARRAY (no markdown, no code fences, no commentary).
-The response must start with '[' and end with ']'.
-Do not add any text before '[' or after ']'. End immediately after the final ']'.
+OUTPUT FORMAT:
+- Return ONLY a valid JSON ARRAY. No markdown, no backticks, no commentary.
+- The first non-whitespace character MUST be '[' and the last MUST be ']'.
+- Do not wrap the array in any object wrapper.
+- Use literal \\n for new lines in string fields.
 
-Each array element is one object with REQUIRED fields:
+SCHEMA (exact keys only):
 - topic: string
 - difficulty: string
 - type: "mcq" OR "code_output"
 - prompt: string
+- explanation: string (optional)
 
-Optional field:
-- explanation: string
+MCQ REQUIREMENTS:
+- choices: array of objects with fields: key, text. key is A/B/C/D
+- answer: one of A/B/C/D (must match a key exactly)
+- Wrong answers must be plausible and based on common developer mistakes.
 
-If type == "mcq", REQUIRED additional fields:
-- choices: array of objects, each object has:
-  - key: string (A, B, C, D)
-  - text: string
-- answer: string (must match one of the choice keys exactly, e.g. "B")
+CODE_OUTPUT REQUIREMENTS:
+- code: string (valid Python, must run)
+- expected_output: string (exact stdout). For topic=big_o, expected_output may be
+  a complexity string like "O(n^2)" instead of stdout.
+- Do NOT include choices for code_output (omit the choices key entirely).
 
-If type == "code_output", REQUIRED additional fields:
-- code: string (valid Python code, must run)
-- expected_output: string (exact stdout after running the code)
+DIFFICULTY RULES:
+- junior: concept check + small realistic code allowed.
+- middle: MUST require reasoning, not memorization.
+- For middle difficulty FORBID trivial patterns:
+  len(), simple slicing, basic dict lookup, syntax trivia.
+
+QUALITY CONSTRAINTS:
+- Each question tests exactly ONE concept.
+- Explanations must be precise and technically correct.
+- For difficulty=middle:
+  - At least 50% questions must include code (prompt snippet or code_output).
+  - Code examples should be at least 4–8 lines.
+  - Include at least one hidden cost or trap:
+    slicing inside loops, list/string concat in loops, pop(0), nested O(n) calls,
+    recursion depth, mutable defaults, identity vs equality, hashing behavior,
+    amortized complexity, or data-structure tradeoffs.
+
+TOPIC HEURISTICS:
+- topic=big_o: prefer code with slicing, min/max in loops, pop(0), dict/set ops,
+  sorting, heapq, recursion, or membership tests.
+- Explanation MUST name the dominating operation and why.
+
 
 STRICT RULES:
 - Do NOT include any extra keys beyond what is listed above.
@@ -44,7 +68,6 @@ STRICT RULES:
 - Keep prompts concise (1–2 sentences).
 - For code_output: code must print something, and expected_output must be deterministic.
 - Avoid duplicates and near-duplicates across the generated questions.
-
 """.strip()
 
 
@@ -53,6 +76,15 @@ Topic: {topic}
 Difficulty: {difficulty}
 Generate {count} questions.
 Type: {qtype}
+
+Make them interview-grade and non-trivial.
+Avoid beginner trivia and definition-only questions.
+
+Rubric:
+- Each question checks one concrete concept.
+- Prefer realistic code and scenarios.
+- Use tricky but fair reasoning where appropriate.
+- Explanations must justify the answer briefly but precisely.
 """.strip()
 
 
@@ -165,7 +197,7 @@ async def generate_question_candidates(payload: dict[str, Any]) -> str:
     llm = ChatGroq(
         model=settings.GROQ_MODEL,
         temperature=settings.GROQ_TEMPERATURE,
-        max_tokens=1800,
+        max_tokens=3500,
     )
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -174,11 +206,6 @@ async def generate_question_candidates(payload: dict[str, Any]) -> str:
         ]
     )
     chain = prompt | llm | StrOutputParser()
-    raw_output = await chain.ainvoke(payload)
-    logger.warning("AI raw output (first 25000): %r", raw_output[:10000])
-    logger.warning("AI raw output (last 200): %r", raw_output[-1000:])
-    
-    return raw_output
 
 
 async def generate_question_candidates_items(

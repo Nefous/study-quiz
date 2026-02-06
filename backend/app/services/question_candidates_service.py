@@ -4,10 +4,11 @@ import hashlib
 import json
 import subprocess
 import asyncio
+import re
 from typing import Any
 
 from datetime import datetime
-from sqlalchemy import select
+from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.question_candidate import QuestionCandidate
@@ -135,18 +136,39 @@ def _simhash64(text: str) -> str:
     return f"{result:016x}"
 
 
+_CODE_FENCE_RE = re.compile(r"```(?:\w+)?\n([\s\S]*?)```")
+
+
+def _split_prompt_code(prompt: str) -> tuple[str, str | None]:
+    match = _CODE_FENCE_RE.search(prompt)
+    if not match:
+        return prompt, None
+    code = match.group(1).strip("\n")
+    before = prompt[: match.start()].strip()
+    after = prompt[match.end() :].strip()
+    parts = [part for part in (before, after) if part]
+    normalized_prompt = "\n\n".join(parts)
+    return normalized_prompt, code
+
+
 def _question_to_payload(question: Question) -> dict[str, Any]:
+    prompt = question.prompt
+    code = question.code
+    if str(question.type) == "code_output":
+        prompt, extracted = _split_prompt_code(prompt)
+        if not code and extracted:
+            code = extracted
     return {
         "topic": str(question.topic),
         "difficulty": str(question.difficulty),
         "type": str(question.type),
-        "prompt": question.prompt,
+        "prompt": prompt,
         "choices": [
             {"key": key, "text": text}
             for key, text in (question.choices or {}).items()
         ] if question.choices else None,
         "answer": question.correct_answer,
-        "code": None,
+        "code": code,
         "expected_output": None,
     }
 
@@ -371,10 +393,11 @@ async def reject_candidate(
 def _payload_to_question_fields(payload: dict[str, Any]) -> dict[str, Any]:
     prompt = payload.get("prompt") or ""
     qtype = payload.get("type")
+    code = payload.get("code")
     if qtype == "code_output":
-        code = payload.get("code") or ""
-        if code and "```" not in prompt:
-            prompt = f"{prompt}\n\n```python\n{code}\n```"
+        prompt, extracted = _split_prompt_code(prompt)
+        if not code and extracted:
+            code = extracted
     choices = None
     if qtype == "mcq":
         choices = {
@@ -387,6 +410,7 @@ def _payload_to_question_fields(payload: dict[str, Any]) -> dict[str, Any]:
         "difficulty": payload.get("difficulty"),
         "type": qtype,
         "prompt": prompt,
+        "code": code,
         "choices": choices,
         "correct_answer": payload.get("answer") or payload.get("expected_output") or "",
         "explanation": payload.get("explanation"),
@@ -410,9 +434,27 @@ async def publish_candidate(
                 Question.topic == fields["topic"],
                 Question.difficulty == fields["difficulty"],
                 Question.type == fields["type"],
-                Question.prompt == fields["prompt"],
                 Question.correct_answer == fields["correct_answer"],
             )
+            if fields.get("type") == "code_output":
+                prompt = fields["prompt"] or ""
+                code = fields.get("code") or ""
+                legacy_prompt = prompt
+                if code and "```" not in prompt:
+                    legacy_prompt = f"{prompt}\n\n```python\n{code}\n```"
+                if legacy_prompt != prompt:
+                    existing_stmt = existing_stmt.where(
+                        or_(
+                            and_(Question.prompt == prompt, Question.code == code),
+                            Question.prompt == legacy_prompt,
+                        )
+                    )
+                else:
+                    existing_stmt = existing_stmt.where(
+                        and_(Question.prompt == prompt, Question.code == code)
+                    )
+            else:
+                existing_stmt = existing_stmt.where(Question.prompt == fields["prompt"])
             existing = await session.execute(existing_stmt)
             question = existing.scalar_one_or_none()
             if question:
@@ -444,13 +486,33 @@ async def publish_candidate(
         Question.topic == fields["topic"],
         Question.difficulty == fields["difficulty"],
         Question.type == fields["type"],
-        Question.prompt == fields["prompt"],
         Question.correct_answer == fields["correct_answer"],
     )
+    if fields.get("type") == "code_output":
+        prompt = fields["prompt"] or ""
+        code = fields.get("code") or ""
+        legacy_prompt = prompt
+        if code and "```" not in prompt:
+            legacy_prompt = f"{prompt}\n\n```python\n{code}\n```"
+        if legacy_prompt != prompt:
+            existing_stmt = existing_stmt.where(
+                or_(
+                    and_(Question.prompt == prompt, Question.code == code),
+                    Question.prompt == legacy_prompt,
+                )
+            )
+        else:
+            existing_stmt = existing_stmt.where(
+                and_(Question.prompt == prompt, Question.code == code)
+            )
+    else:
+        existing_stmt = existing_stmt.where(Question.prompt == fields["prompt"])
     existing = await session.execute(existing_stmt)
     question = existing.scalar_one_or_none()
     if not question:
-        question = Question(**fields, seed_key=hashlib.sha256(fields["prompt"].encode("utf-8")).hexdigest()[:64])
+        seed_payload = f"{fields['topic']}|{fields['difficulty']}|{fields['type']}|{fields['prompt']}|{fields.get('code') or ''}"
+        seed_key = hashlib.sha256(seed_payload.encode("utf-8")).hexdigest()[:64]
+        question = Question(**fields, seed_key=seed_key)
         session.add(question)
         await session.flush()
 

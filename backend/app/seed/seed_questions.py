@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import uuid
+import re
 from pathlib import Path
 
 from app.db.session import AsyncSessionLocal
@@ -13,9 +14,30 @@ SEED_FILE = Path(__file__).with_name("questions.seed.json")
 logger = logging.getLogger(__name__)
 
 
-def _compute_seed_key(topic: Topic, difficulty: Difficulty, qtype: QuestionType, prompt: str) -> str:
-    raw = f"{topic.value}|{difficulty.value}|{qtype.value}|{prompt}".encode("utf-8")
+def _compute_seed_key(
+    topic: Topic,
+    difficulty: Difficulty,
+    qtype: QuestionType,
+    prompt: str,
+    code: str | None,
+) -> str:
+    raw = f"{topic.value}|{difficulty.value}|{qtype.value}|{prompt}|{code or ''}".encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
+
+
+_CODE_FENCE_RE = re.compile(r"```(?:\w+)?\n([\s\S]*?)```")
+
+
+def _split_prompt_code(prompt: str) -> tuple[str, str | None]:
+    match = _CODE_FENCE_RE.search(prompt)
+    if not match:
+        return prompt, None
+    code = match.group(1).strip("\n")
+    before = prompt[: match.start()].strip()
+    after = prompt[match.end() :].strip()
+    parts = [part for part in (before, after) if part]
+    normalized_prompt = "\n\n".join(parts)
+    return normalized_prompt, code
 
 
 def _validate_choice_keys(choices: dict[str, str]) -> None:
@@ -32,6 +54,7 @@ def _validate_question(item: dict) -> QuestionCreateInternal:
     difficulty = Difficulty(item["difficulty"])
     qtype = QuestionType(item["type"])
     prompt = item["prompt"]
+    code = item.get("code")
     correct_answer = item["correct_answer"]
 
     if not isinstance(prompt, str) or not prompt.strip():
@@ -45,10 +68,14 @@ def _validate_question(item: dict) -> QuestionCreateInternal:
         if correct_answer not in choices:
             raise ValueError("MCQ correct_answer must be one of A/B/C/D")
     else:
-        if "```" not in prompt:
-            raise ValueError("code_output questions must include a code snippet in prompt")
+        if not code:
+            prompt, extracted = _split_prompt_code(prompt)
+            if extracted:
+                code = extracted
+        if not code:
+            raise ValueError("code_output questions must include code")
 
-    seed_key = _compute_seed_key(topic, difficulty, qtype, prompt)
+    seed_key = _compute_seed_key(topic, difficulty, qtype, prompt, code)
     return QuestionCreateInternal(
         id=item.get("id"),
         seed_key=seed_key,
@@ -56,6 +83,7 @@ def _validate_question(item: dict) -> QuestionCreateInternal:
         difficulty=difficulty,
         type=qtype,
         prompt=prompt,
+        code=code,
         choices=item.get("choices"),
         correct_answer=correct_answer,
         explanation=item.get("explanation"),
