@@ -354,7 +354,7 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-3">
                 <Lightbulb size={16} className="text-indigo-400" />
-                <span className="text-sm text-slate-300">AI-powered hints</span>
+                <span className="text-sm text-slate-300">AI-powered</span>
               </div>
               <div className="flex items-center gap-3">
                 <TrendingUp size={16} className="text-indigo-400" />
