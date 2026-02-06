@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import os
 import sys
 from pathlib import Path
@@ -41,15 +40,6 @@ _apply_env_defaults()
 
 
 @pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    try:
-        yield loop
-    finally:
-        loop.close()
-
-
-@pytest.fixture(scope="session")
 def database_url() -> str:
     url = os.environ.get("DATABASE_URL")
     if not url:
@@ -67,7 +57,7 @@ def apply_migrations(database_url: str) -> None:
     command.upgrade(alembic_cfg, "head")
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture()
 async def async_engine(database_url: str):
     engine = create_async_engine(database_url, echo=False, pool_pre_ping=True)
     try:
@@ -76,7 +66,7 @@ async def async_engine(database_url: str):
         await engine.dispose()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture()
 async def configure_app_db(async_engine) -> None:
     from app.db import session as session_module
 
