@@ -24,6 +24,7 @@ from app.schemas.attempts import (
     AttemptTopicStats,
 )
 from app.utils.enums import QuestionType
+from app.utils.rate_limit import ai_review_rate_limiter
 from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/attempts", tags=["attempts"])
@@ -401,6 +402,7 @@ async def get_attempt_ai_review(
     attempt_id: UUID,
     generate: bool = Query(default=False),
     user=Depends(get_current_user),
+    _rate_limiter=Depends(ai_review_rate_limiter),
     session: AsyncSession = Depends(get_session),
 ) -> AiReviewResponse:
     settings = get_settings()

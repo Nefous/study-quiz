@@ -197,7 +197,7 @@ async def generate_question_candidates(payload: dict[str, Any]) -> str:
     llm = ChatGroq(
         model=settings.GROQ_MODEL,
         temperature=settings.GROQ_TEMPERATURE,
-        max_tokens=4500,
+        max_tokens=7000,
     )
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -207,6 +207,9 @@ async def generate_question_candidates(payload: dict[str, Any]) -> str:
     )
     chain = prompt | llm | StrOutputParser()
     
+    raw_output = await chain.ainvoke(payload)
+
+    return raw_output
 
 async def generate_question_candidates_items(
     payload: dict[str, Any],

@@ -1,3 +1,4 @@
+import importlib
 import logging
 from contextlib import asynccontextmanager
 
@@ -5,12 +6,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.routing import APIRoute
-
-from slowapi import Limiter
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from redis import asyncio as redis_asyncio
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
@@ -21,11 +19,32 @@ settings = get_settings()
 configure_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-limiter = Limiter(key_func=get_remote_address)
 
+def _load_fastapi_limiter():
+    module = importlib.import_module("fastapi_limiter")
+    if hasattr(module, "FastAPILimiter"):
+        return module.FastAPILimiter
+    for name in ("fastapi_limiter.limiter", "fastapi_limiter.fastapi_limiter"):
+        try:
+            sub = importlib.import_module(name)
+        except ModuleNotFoundError:
+            continue
+        if hasattr(sub, "FastAPILimiter"):
+            return sub.FastAPILimiter
+    raise ImportError("FastAPILimiter not found in fastapi_limiter")
+
+
+FastAPILimiter = _load_fastapi_limiter()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    redis = redis_asyncio.from_url(
+        settings.REDIS_URL,
+        encoding="utf-8",
+        decode_responses=True,
+    )
+    await FastAPILimiter.init(redis)
+
     # Startup events
     logger.info("CORS origins: %s", settings.CORS_ORIGINS)
     hint_routes = [
@@ -39,6 +58,7 @@ async def lifespan(app: FastAPI):
     
     yield
     
+    await redis.close()
     logger.info("Application shutting down")
 
 
@@ -47,8 +67,6 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan  
 )
-
-app.state.limiter = limiter
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,20 +77,6 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
-
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
-    return JSONResponse(
-        status_code=429,
-        content={
-            "error": {
-                "message": "Too many requests. Please try again later.",
-                "status": 429,
-                "detail": str(exc.detail)
-            }
-        },
-    )
-
 
 @app.get("/__debug")
 async def debug_info() -> dict:

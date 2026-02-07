@@ -20,6 +20,7 @@ from app.schemas.recommendations import (
     NextQuizRecommendationGenerated,
 )
 from app.services.auth_service import get_current_user
+from app.utils.rate_limit import ai_coach_rate_limiter
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
@@ -116,6 +117,7 @@ async def get_next_quiz_recommendation(
 @router.post("/next-quiz/generate", response_model=NextQuizRecommendationGenerated)
 async def generate_next_quiz_recommendation_endpoint(
     user=Depends(get_current_user),
+    _rate_limiter=Depends(ai_coach_rate_limiter),
     session: AsyncSession = Depends(get_session),
 ) -> NextQuizRecommendationGenerated:
     settings = get_settings()

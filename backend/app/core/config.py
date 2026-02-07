@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     GITHUB_REDIRECT_URI: str | None = Field(default=None)
     DEFAULT_QUIZ_SIZE: int = Field(default=10)
     MAX_QUESTIONS_PER_QUIZ: int = Field(default=15)
+    REDIS_URL: str = Field(default="redis://redis:6379/0")
     GROQ_API_KEY: str | None = Field(default=None)
     GROQ_MODEL: str = Field(default="openai/gpt-oss-120b")
     GROQ_TEMPERATURE: float = Field(default=0.4)
