@@ -439,9 +439,6 @@ export default function Home() {
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                <p className="text-sm text-slate-400">
-                  Tap to get a recommended next quiz.
-                </p>
                 <Button
                   type="button"
                   onClick={() => {

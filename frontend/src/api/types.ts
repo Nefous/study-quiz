@@ -5,6 +5,7 @@ export type QuizMode = "practice" | "exam";
 export type AttemptType = "normal" | "mistakes_review";
 
 export type QuizGenerateRequest = {
+  attempt_id?: string;
   topic?: Topic;
   topics?: Topic[];
   difficulty: Difficulty;

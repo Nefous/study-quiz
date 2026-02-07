@@ -279,7 +279,9 @@ export default function Quiz() {
           }
         }
 
-        const response = await generateQuiz(settings);
+        const response = await generateQuiz(
+          attemptId ? { ...settings, attempt_id: attemptId } : settings
+        );
         if (active) {
           if (!response.questions.length) {
             setError("No questions available for this selection.");
