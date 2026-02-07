@@ -1,11 +1,15 @@
 # QuizStudy
 
-QuizStudy is a full-stack web application for Python interview preparation.  
+QuizStudy is an application focused on core Python concepts and essential programming skills.
 It allows users to take quizzes on key topics such as **Python Core**, **Big O notation**, **Algorithms**, and **Data Structures**,  progress tracking, and detailed performance analytics enhanced with AI-powered hints and AI-driven review feedback.
 
 <p align="center" >
     <img src="frontend/src/assets/logo.png" alt="QuizStudy Logo" width="120" />
 </p>
+
+### 📷 Documentation Screenshots
+
+Screenshots can be found in the [`/docs/docs`](docs/docs) directory.
 
 ## ✨ Features
 
@@ -27,7 +31,7 @@ It allows users to take quizzes on key topics such as **Python Core**, **Big O n
 - Code Output questions (determine the result of Python code)
 
 ### 🤖 AI-Powered Features
-- **Intelligent Contextual Hints** powered by Groq API
+- **Intelligent Contextual Hints**
   - Penalty-based system for strategic learning
   - Multiple hint levels: subtle guidance to explicit help
   - Rate-limited to encourage thoughtful problem-solving
@@ -38,7 +42,12 @@ It allows users to take quizzes on key topics such as **Python Core**, **Big O n
   - Micro-drills for targeted improvement
   - Next quiz suggestions based on performance
 - **AI Coach** - personalized next quiz recommendations based on performance history
-- **Next Quiz Recommendation Chain** for adaptive learning paths
+
+### 🧪 Question Candidate Pipeline (Admin)
+- AI-generated question candidates with configurable topic, difficulty, and type
+- Validation pipeline
+- Moderation workflow: approve, reject, publish to question bank
+- Admin-only endpoints for candidate generation and review
 
 ### 🔐 Authentication
 - Email / Password
@@ -61,15 +70,7 @@ It allows users to take quizzes on key topics such as **Python Core**, **Big O n
 
 ### 🔄 Learning Features
 - Repeat Mistakes - Review and retake previously incorrect questions
-- Mistakes review quizzes with targeted practice
 - Attempt types: Normal quizzes and Mistakes Review
-- Adaptive quiz generation based on performance
-
-### ⏱️ Timing & Exam Features
-- Timed quizzes with configurable time limits
-- Time tracking for each attempt
-- Timeout detection and handling
-- Practice vs Exam mode distinctions
 
 ## 🧱 Tech Stack
 
@@ -84,45 +85,26 @@ It allows users to take quizzes on key topics such as **Python Core**, **Big O n
 ### Database
 - **PostgreSQL**
 
-### Frontend
-- **React + TypeScript**
-- **Vite**
-- **Tailwind CSS**
-### Containerization
-- **Docker**
-- **Docker Compose**
-
-## 🧱 Tech Stack
-
-### Backend
-- **FastAPI** , **REST API**
-- **SQLAlchemy**, **Alembic**
-- **Pydantic**
-- **JWT**
-- **OAuth**: Google, GitHub
-- **Groq API**
-
-### Database
-- **PostgreSQL**
+### Cache
+- **Redis**
 
 ### Frontend
 - **React + TypeScript**
 - **Vite**
 - **Tailwind CSS**
+
 ### Containerization
 - **Docker**
-- **Docker Compose**
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Docker and Docker Compose installed
-- Git (optional, for cloning)
+- Git 
 
 ### Quick Start
 ```bash
-# Clone the repository (if not already)
-git clone <repository-url>
+git clone https://github.com/Nefous/study-quiz
 cd QuizStudy
 
 # Start the application
@@ -130,7 +112,7 @@ docker compose up --build
 ```
 
 The application will be available at:
-- Frontend: http://localhost:3000
+- Frontend: http://localhost:5173
 - Backend API: http://localhost:8000
 - API Documentation: http://localhost:8000/docs
 
@@ -150,11 +132,5 @@ npm run dev
 ```
 
 ### Environment Variables
-Create a `.env` file in the backend directory with:
-```
-DATABASE_URL=postgresql://user:password@localhost/quizstudy
-SECRET_KEY=your-secret-key
-GROQ_API_KEY=your-groq-api-key
-GOOGLE_CLIENT_ID=your-google-client-id
-GITHUB_CLIENT_ID=your-github-client-id
-```
+Copy `.env.example` to `.env` at the repo root and update values.
+
