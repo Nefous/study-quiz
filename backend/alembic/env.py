@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from logging.config import fileConfig
-from pathlib import Path
 
 from alembic import context
 from sqlalchemy import pool

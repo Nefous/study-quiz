@@ -12,7 +12,6 @@ from app.services.auth_service import get_admin_user
 from app.integrations.question_candidates_chain import (
     generate_question_candidates_items,
     CandidateParseError,
-    parse_candidates_json,
 )
 from app.services.question_candidates_service import (
     approve_candidate,

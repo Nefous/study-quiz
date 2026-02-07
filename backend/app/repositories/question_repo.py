@@ -101,11 +101,6 @@ class QuestionRepository:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
-    async def bulk_insert_questions(self, items: list[QuestionCreateInternal]) -> None:
-        payload = [item.model_dump(exclude_none=True) for item in items]
-        await self.session.execute(insert(Question), payload)
-        await self.session.commit()
-
     async def upsert_questions_by_seed_key(self, items: list[QuestionCreateInternal]) -> int:
         if not items:
             return 0

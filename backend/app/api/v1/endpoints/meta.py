@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.schemas.meta import MetaResponse, QuestionOptionsResponse
-from app.utils.enums import Difficulty, QuizMode, Topic
+from app.utils.enums import QuizMode
 from app.db.session import get_session
 from app.models.question import Question
 

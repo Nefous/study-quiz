@@ -8,7 +8,7 @@ import random
 from app.repositories.question_repo import QuestionRepository
 from app.repositories.attempt_answer_repo import AttemptAnswerRepository
 from app.schemas.quiz import QuizGenerateResponse, QuizQuestionOut
-from app.utils.enums import Difficulty, QuestionType, QuizMode, Topic
+from app.utils.enums import Difficulty, QuizMode, Topic
 
 
 class QuizService:

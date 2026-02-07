@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.schemas.quiz import QuizGenerateRequest, QuizGenerateResponse, QuizQuestionOut
+from app.schemas.quiz import QuizGenerateResponse, QuizQuestionOut
 from app.services.quiz_service import QuizService
 from app.utils.enums import AttemptType, Difficulty, QuizMode, Topic
 from app.repositories.quiz_attempt_repo import QuizAttemptRepository

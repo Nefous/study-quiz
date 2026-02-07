@@ -138,7 +138,6 @@ def build_user_out(user) -> UserOut:
         payload["is_admin"] = True
         payload["role"] = payload.get("role") or "admin"
     return UserOut(**payload)
-    return user
 
 
 def set_refresh_cookie(response: Response, token: str) -> None:
@@ -177,6 +176,7 @@ async def issue_refresh_token(session: AsyncSession, user_id) -> str:
 async def rotate_refresh_token(session: AsyncSession, token: str):
     token_hash = hash_refresh_token(token)
     redis = await get_redis()
+    cached_user_id = await redis.get(f"quizstudy:refresh:{token_hash}")
     repo = RefreshTokenRepository(session)
     stored = await repo.get_by_hash(token_hash)
     if not stored or stored.revoked:
@@ -184,7 +184,6 @@ async def rotate_refresh_token(session: AsyncSession, token: str):
     if stored.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Refresh token expired")
 
-    cached_user_id = await redis.get(f"quizstudy:refresh:{token_hash}")
     if cached_user_id is None:
         ttl = int((stored.expires_at - datetime.now(timezone.utc)).total_seconds())
         await redis.set(
