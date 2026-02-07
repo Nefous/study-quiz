@@ -286,9 +286,9 @@ export default function Home() {
     <div className="space-y-8">
       {/* Header */}
       <PageHeader
-        badge="Python Interview Prep"
+        badge="QuizStudy"
         title="Master your next interview"
-        description="Practice with realistic questions across core Python, algorithms, and data structures."
+        description="QuizStudy is an application focused on core Python concepts and essential programming skills."
       />
 
       {/* Main content grid */}
@@ -656,3 +656,5 @@ export default function Home() {
     </div>
   );
 }
+
+
