@@ -29,6 +29,13 @@ async def generate_quiz(
     user=Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> QuizGenerateResponse:
+    attempt_id = None
+    attempt_id_raw = body.get("attempt_id")
+    if attempt_id_raw:
+        try:
+            attempt_id = UUID(str(attempt_id_raw))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="Invalid attempt_id") from exc
     attempt_type = parse_enum(body.get("attempt_type"), AttemptType, "attempt_type") if body.get("attempt_type") else AttemptType.NORMAL
     mode_value = body.get("mode")
     if attempt_type != AttemptType.MISTAKES_REVIEW and "mode" not in body:
@@ -186,21 +193,41 @@ async def generate_quiz(
         if meta is None:
             meta = {}
         meta["questions"] = [str(item.id) for item in response.questions]
-        attempt = await attempt_repo.create_attempt(
-            {
-                "user_id": user.id,
-                "topic": topic_value,
-                "difficulty": difficulty.value,
-                "mode": mode.value,
-                "attempt_type": AttemptType.NORMAL.value,
-                "size": size,
-                "correct_count": 0,
-                "total_count": len(response.questions),
-                "answers": [],
-                "meta": meta,
-                "started_at": datetime.utcnow(),
-            }
-        )
+        if attempt_id:
+            attempt = await attempt_repo.get_by_id(attempt_id)
+            if not attempt or attempt.user_id != user.id:
+                raise HTTPException(status_code=404, detail="Attempt not found")
+            attempt = await attempt_repo.update_attempt(
+                attempt,
+                {
+                    "topic": topic_value,
+                    "difficulty": difficulty.value,
+                    "mode": mode.value,
+                    "attempt_type": AttemptType.NORMAL.value,
+                    "size": size,
+                    "correct_count": 0,
+                    "total_count": len(response.questions),
+                    "answers": [],
+                    "meta": meta,
+                    "started_at": attempt.started_at or datetime.utcnow(),
+                },
+            )
+        else:
+            attempt = await attempt_repo.create_attempt(
+                {
+                    "user_id": user.id,
+                    "topic": topic_value,
+                    "difficulty": difficulty.value,
+                    "mode": mode.value,
+                    "attempt_type": AttemptType.NORMAL.value,
+                    "size": size,
+                    "correct_count": 0,
+                    "total_count": len(response.questions),
+                    "answers": [],
+                    "meta": meta,
+                    "started_at": datetime.utcnow(),
+                }
+            )
         response.attempt_id = attempt.id
         return response
     except ValueError as exc:

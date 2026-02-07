@@ -85,6 +85,8 @@ def build_rate_limiter(
     require_user: bool = False,
 ):
     async def dependency(request: Request, response: Response) -> None:
+        if not getattr(request.app.state, "rate_limit_enabled", True):
+            return
         user_id = _get_user_id(request)
         if require_user and not user_id:
             return

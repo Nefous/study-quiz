@@ -11,7 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
-from app.core.redis_client import close_redis, get_redis
+from app.core.redis_client import close_redis, get_redis_real
 from app.core.logging import configure_logging
 from app.seed.seed_questions import seed_if_empty
 
@@ -38,8 +38,13 @@ FastAPILimiter = _load_fastapi_limiter()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    redis = await get_redis()
-    await FastAPILimiter.init(redis)
+    redis = await get_redis_real()
+    if redis is None:
+        app.state.rate_limit_enabled = False
+        logger.warning("Redis unavailable; rate limiting disabled")
+    else:
+        app.state.rate_limit_enabled = True
+        await FastAPILimiter.init(redis)
 
     # Startup events
     logger.info("CORS origins: %s", settings.CORS_ORIGINS)

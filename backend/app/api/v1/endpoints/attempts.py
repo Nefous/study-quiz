@@ -173,8 +173,6 @@ async def create_attempt(
     answer_repo = AttemptAnswerRepository(session)
     await answer_repo.replace_for_attempt(attempt.id, user.id, attempt.answers or [])
 
-    recommendation_repo = AiRecommendationRepository(session)
-    await recommendation_repo.complete_by_attempt(user.id, attempt.id)
     return _to_out(attempt)
 
 
@@ -276,6 +274,9 @@ async def submit_attempt(
 
     answer_repo = AttemptAnswerRepository(session)
     await answer_repo.replace_for_attempt(attempt.id, user.id, attempt.answers or [])
+
+    recommendation_repo = AiRecommendationRepository(session)
+    await recommendation_repo.complete_by_attempt(user.id, attempt.id)
 
     logger.info("attempt submitted %s at %s", attempt.id, attempt.submitted_at)
     return _to_out(attempt)
