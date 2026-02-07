@@ -66,6 +66,14 @@ const HINT_LEVEL_LABELS: Record<number, string> = {
   3: "Strong"
 };
 
+const formatRateLimitMessage = (retryAfterSeconds?: number) => {
+  if (!retryAfterSeconds) {
+    return "Rate limit reached. Try again soon.";
+  }
+  const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+  return `Rate limit reached. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+};
+
 export default function Quiz() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -90,6 +98,7 @@ export default function Quiz() {
   const [hintLoadingByQuestionId, setHintLoadingByQuestionId] = useState<Record<string, boolean>>({});
   const [hintErrorByQuestionId, setHintErrorByQuestionId] = useState<Record<string, string>>({});
   const [usedHintsCount, setUsedHintsCount] = useState(0);
+  const [hintCooldownUntil, setHintCooldownUntil] = useState<number | null>(null);
   const [penaltyTotal, setPenaltyTotal] = useState(0);
   const [penaltyByQuestion, setPenaltyByQuestion] = useState<Record<string, number>>({});
   const [hintsUsedByQuestion, setHintsUsedByQuestion] = useState<Record<string, number>>({});
@@ -102,6 +111,18 @@ export default function Quiz() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const finishTriggeredRef = useRef(false);
   const lastTickRef = useRef<number | null>(null);
+  const hintCooldownActive = hintCooldownUntil !== null && hintCooldownUntil > Date.now();
+
+  useEffect(() => {
+    if (!hintCooldownUntil) return;
+    const delay = hintCooldownUntil - Date.now();
+    if (delay <= 0) {
+      setHintCooldownUntil(null);
+      return;
+    }
+    const timeout = window.setTimeout(() => setHintCooldownUntil(null), delay);
+    return () => window.clearTimeout(timeout);
+  }, [hintCooldownUntil]);
 
   const settings = useMemo<QuizGenerateRequest | null>(() => {
     const topic = params.get("topic") as Topic | null;
@@ -649,6 +670,18 @@ export default function Quiz() {
       }));
     } catch (err) {
       const apiError = err as ApiError;
+      if (apiError?.status === 429) {
+        setHintCooldownUntil(
+          apiError.retryAfterSeconds
+            ? Date.now() + apiError.retryAfterSeconds * 1000
+            : null
+        );
+        setHintErrorByQuestionId((prev) => ({
+          ...prev,
+          [hintKey]: formatRateLimitMessage(apiError.retryAfterSeconds)
+        }));
+        return;
+      }
       const message = apiError?.message || (err instanceof Error ? err.message : "Failed to get hint");
       setHintErrorByQuestionId((prev) => ({ ...prev, [hintKey]: message }));
     } finally {

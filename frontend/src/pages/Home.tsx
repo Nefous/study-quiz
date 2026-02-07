@@ -59,6 +59,14 @@ const TOPIC_DESCRIPTIONS: Record<string, string> = {
   data_structures: "Lists, stacks, queues, and trees"
 };
 
+const formatRateLimitMessage = (retryAfterSeconds?: number) => {
+  if (!retryAfterSeconds) {
+    return "Rate limit reached. Try again soon.";
+  }
+  const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+  return `Rate limit reached. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+};
+
 export default function Home() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -75,6 +83,20 @@ export default function Home() {
     NextQuizRecommendationGenerated | null
   >(null);
   const [generatedLoading, setGeneratedLoading] = useState(false);
+  const [coachError, setCoachError] = useState<string | null>(null);
+  const [coachCooldownUntil, setCoachCooldownUntil] = useState<number | null>(null);
+  const coachCooldownActive = coachCooldownUntil !== null && coachCooldownUntil > Date.now();
+
+  useEffect(() => {
+    if (!coachCooldownUntil) return;
+    const delay = coachCooldownUntil - Date.now();
+    if (delay <= 0) {
+      setCoachCooldownUntil(null);
+      return;
+    }
+    const timeout = window.setTimeout(() => setCoachCooldownUntil(null), delay);
+    return () => window.clearTimeout(timeout);
+  }, [coachCooldownUntil]);
 
   const canSubmit = useMemo(() => {
     if (!difficulty || !mode || size <= 0) return false;
@@ -427,8 +449,9 @@ export default function Home() {
                       navigate("/login?returnUrl=%2F");
                       return;
                     }
-                    if (generatedLoading) return;
+                    if (generatedLoading || coachCooldownActive) return;
                     setGeneratedLoading(true);
+                    setCoachError(null);
                     generateNextQuizRecommendation()
                       .then((response) => {
                         setGeneratedRecommendation(response);
@@ -437,12 +460,28 @@ export default function Home() {
                           JSON.stringify(response)
                         );
                       })
+                      .catch((err) => {
+                        const apiError = err as ApiError;
+                        if (apiError?.status === 429) {
+                          setCoachCooldownUntil(
+                            apiError.retryAfterSeconds
+                              ? Date.now() + apiError.retryAfterSeconds * 1000
+                              : null
+                          );
+                          setCoachError(formatRateLimitMessage(apiError.retryAfterSeconds));
+                          return;
+                        }
+                        setCoachError(apiError?.message || "Failed to load AI coach");
+                      })
                       .finally(() => setGeneratedLoading(false));
                   }}
-                  disabled={generatedLoading}
+                  disabled={generatedLoading || coachCooldownActive}
                 >
                   {generatedLoading ? "Loading..." : "AI Coach"}
                 </Button>
+                {coachError ? (
+                  <p className="text-xs text-rose-200">{coachError}</p>
+                ) : null}
               </div>
             )}
           </Card>

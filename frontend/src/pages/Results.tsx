@@ -26,6 +26,7 @@ import {
 import type {
   AiReviewResponse,
   AttemptReviewItem,
+  ApiError,
   QuizMode,
   QuizQuestion,
   QuizSummary,
@@ -71,6 +72,14 @@ type ResultsState = {
   >;
 };
 
+const formatRateLimitMessage = (retryAfterSeconds?: number) => {
+  if (!retryAfterSeconds) {
+    return "Rate limit reached. Try again soon.";
+  }
+  const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+  return `Rate limit reached. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+};
+
 export default function Results() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -88,6 +97,7 @@ export default function Results() {
   const [aiReview, setAiReview] = useState<AiReviewResponse | null>(null);
   const [aiReviewLoading, setAiReviewLoading] = useState(false);
   const [aiReviewError, setAiReviewError] = useState<string | null>(null);
+  const [aiReviewCooldownUntil, setAiReviewCooldownUntil] = useState<number | null>(null);
   const [reviewItems, setReviewItems] = useState<AttemptReviewItem[]>([]);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -112,6 +122,18 @@ export default function Results() {
   const hasDetails = Boolean(state && settings && questions.length > 0);
   const aiReviewStatus = aiReview?.status;
   const aiReviewNotGenerated = aiReviewStatus === "not_generated" || aiReviewStatus === "pending";
+  const aiReviewCooldownActive = aiReviewCooldownUntil !== null && aiReviewCooldownUntil > Date.now();
+
+  useEffect(() => {
+    if (!aiReviewCooldownUntil) return;
+    const delay = aiReviewCooldownUntil - Date.now();
+    if (delay <= 0) {
+      setAiReviewCooldownUntil(null);
+      return;
+    }
+    const timeout = window.setTimeout(() => setAiReviewCooldownUntil(null), delay);
+    return () => window.clearTimeout(timeout);
+  }, [aiReviewCooldownUntil]);
 
   const immediateSummary = useMemo<QuizSummary | null>(() => {
     if (state?.summary) return state.summary;
@@ -224,7 +246,17 @@ export default function Results() {
       const data = await getAttemptAiReview(id, true);
       setAiReview(data);
     } catch (err) {
-      setAiReviewError(err instanceof Error ? err.message : "Failed to load AI review");
+      const apiError = err as ApiError;
+      if (apiError?.status === 429) {
+        setAiReviewCooldownUntil(
+          apiError.retryAfterSeconds
+            ? Date.now() + apiError.retryAfterSeconds * 1000
+            : null
+        );
+        setAiReviewError(formatRateLimitMessage(apiError.retryAfterSeconds));
+      } else {
+        setAiReviewError(err instanceof Error ? err.message : "Failed to load AI review");
+      }
     } finally {
       setAiReviewLoading(false);
     }
@@ -296,6 +328,16 @@ export default function Results() {
     getAttemptAiReview(attemptId, false)
       .then((data) => setAiReview(data))
       .catch((err) => {
+        const apiError = err as ApiError;
+        if (apiError?.status === 429) {
+          setAiReviewCooldownUntil(
+            apiError.retryAfterSeconds
+              ? Date.now() + apiError.retryAfterSeconds * 1000
+              : null
+          );
+          setAiReviewError(formatRateLimitMessage(apiError.retryAfterSeconds));
+          return;
+        }
         setAiReviewError(err instanceof Error ? err.message : "Failed to load AI review");
       })
       .finally(() => setAiReviewLoading(false));
@@ -589,7 +631,7 @@ export default function Results() {
                 size="sm"
                 variant="secondary"
                 onClick={handleAiReview}
-                disabled={!attemptId || aiReviewLoading || creatingAttempt}
+                disabled={!attemptId || aiReviewLoading || creatingAttempt || aiReviewCooldownActive}
               >
                 Generate AI Review
               </Button>

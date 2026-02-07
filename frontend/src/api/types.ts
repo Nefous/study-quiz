@@ -38,6 +38,7 @@ export type QuizGenerateResponse = {
 export type ApiError = {
   message: string;
   status?: number;
+  retryAfterSeconds?: number;
 };
 
 export type MetaResponse = {

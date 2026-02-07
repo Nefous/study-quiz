@@ -33,6 +33,24 @@ async function parseJson<T>(response: Response): Promise<T> {
   }
 }
 
+const parseRetryAfterSeconds = (
+  response: Response,
+  payload?: Record<string, unknown>
+): number | undefined => {
+  const header = response.headers.get("Retry-After");
+  const headerValue = header ? Number(header) : NaN;
+  const bodyValue =
+    typeof payload?.retry_after === "number"
+      ? payload.retry_after
+      : typeof (payload?.error as { retry_after?: unknown } | undefined)?.retry_after ===
+        "number"
+        ? (payload?.error as { retry_after?: number }).retry_after
+        : undefined;
+  if (bodyValue) return bodyValue;
+  if (Number.isFinite(headerValue) && headerValue > 0) return headerValue;
+  return undefined;
+};
+
 export async function request<T>(
   url: string,
   options?: RequestInit,
@@ -62,8 +80,21 @@ export async function request<T>(
 
   if (!response.ok) {
     const body = await response.text();
-    const message = body || response.statusText || "Request failed";
-    throw { message, status: response.status } satisfies ApiError;
+    let payload: Record<string, unknown> | undefined;
+    try {
+      payload = body ? (JSON.parse(body) as Record<string, unknown>) : undefined;
+    } catch {
+      payload = undefined;
+    }
+
+    const message =
+      (payload?.error as { message?: string } | undefined)?.message ||
+      (payload?.message as string | undefined) ||
+      body ||
+      response.statusText ||
+      "Request failed";
+    const retryAfterSeconds = parseRetryAfterSeconds(response, payload);
+    throw { message, status: response.status, retryAfterSeconds } satisfies ApiError;
   }
 
   return parseJson<T>(response);
