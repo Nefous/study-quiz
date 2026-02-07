@@ -104,7 +104,7 @@ Screenshots can be found in the [`/docs/docs`](docs/docs) directory.
 
 ### Quick Start
 ```bash
-git clone https://github.com/Nefous/study-quiz
+git clone https://github.com/Nefous/study-quiz.git
 cd QuizStudy
 
 # Start the application
