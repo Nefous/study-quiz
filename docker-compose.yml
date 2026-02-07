@@ -28,8 +28,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     ports:
       - "${APP_PORT:-8000}:${APP_PORT:-8000}"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
 
   frontend:
     build:
