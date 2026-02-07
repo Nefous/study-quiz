@@ -7,11 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
-from redis import asyncio as redis_asyncio
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.core.redis_client import close_redis, get_redis
 from app.core.logging import configure_logging
 from app.seed.seed_questions import seed_if_empty
 
@@ -38,11 +38,7 @@ FastAPILimiter = _load_fastapi_limiter()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    redis = redis_asyncio.from_url(
-        settings.REDIS_URL,
-        encoding="utf-8",
-        decode_responses=True,
-    )
+    redis = await get_redis()
     await FastAPILimiter.init(redis)
 
     # Startup events
@@ -58,7 +54,7 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    await redis.close()
+    await close_redis()
     logger.info("Application shutting down")
 
 

@@ -6,8 +6,6 @@ from hashlib import sha256
 from pathlib import Path
 import secrets
 import uuid
-import base64
-import hmac
 import json
 
 import jwt
@@ -16,6 +14,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.redis_client import get_redis
 from app.db.session import get_session
 from app.repositories.refresh_token_repo import RefreshTokenRepository
 from app.repositories.user_repo import UserRepository
@@ -62,31 +61,29 @@ def decode_access_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail="Invalid access token") from exc
 
 
-def create_oauth_state(payload: dict) -> str:
-    data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-    signature = hmac.new(settings.SECRET_KEY.encode("utf-8"), data, sha256).digest()
-    encoded_data = base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
-    encoded_sig = base64.urlsafe_b64encode(signature).decode("utf-8").rstrip("=")
-    return f"{encoded_data}.{encoded_sig}"
+async def create_oauth_state(payload: dict) -> str:
+    state_id = secrets.token_urlsafe(32)
+    key = f"quizstudy:oauth_state:{state_id}"
+    redis = await get_redis()
+    await redis.set(key, json.dumps(payload, separators=(",", ":")), ex=600)
+    return state_id
 
 
-def verify_oauth_state(state: str) -> dict:
+async def verify_oauth_state(state: str) -> dict:
+    key = f"quizstudy:oauth_state:{state}"
+    redis = await get_redis()
+    raw = await redis.get(key)
+    if raw is None:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+    await redis.delete(key)
     try:
-        encoded_data, encoded_sig = state.split(".", 1)
-        padded_data = encoded_data + "=" * (-len(encoded_data) % 4)
-        padded_sig = encoded_sig + "=" * (-len(encoded_sig) % 4)
-        data = base64.urlsafe_b64decode(padded_data.encode("utf-8"))
-        signature = base64.urlsafe_b64decode(padded_sig.encode("utf-8"))
-        expected = hmac.new(settings.SECRET_KEY.encode("utf-8"), data, sha256).digest()
-        if not hmac.compare_digest(signature, expected):
-            raise HTTPException(status_code=400, detail="Invalid OAuth state")
-        payload = json.loads(data.decode("utf-8"))
-        exp = payload.get("exp")
-        if exp and datetime.now(timezone.utc).timestamp() > float(exp):
-            raise HTTPException(status_code=400, detail="OAuth state expired")
-        return payload
-    except ValueError as exc:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail="Invalid OAuth state") from exc
+    exp = payload.get("exp")
+    if exp and datetime.now(timezone.utc).timestamp() > float(exp):
+        raise HTTPException(status_code=400, detail="OAuth state expired")
+    return payload
 
 
 async def get_current_user(
@@ -167,11 +164,19 @@ async def issue_refresh_token(session: AsyncSession, user_id) -> str:
     expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_DAYS)
     repo = RefreshTokenRepository(session)
     await repo.create(user_id=user_id, token_hash=token_hash, expires_at=expires_at)
+    redis = await get_redis()
+    ttl = int((expires_at - datetime.now(timezone.utc)).total_seconds())
+    await redis.set(
+        f"quizstudy:refresh:{token_hash}",
+        str(user_id),
+        ex=max(ttl, 1),
+    )
     return token
 
 
 async def rotate_refresh_token(session: AsyncSession, token: str):
     token_hash = hash_refresh_token(token)
+    redis = await get_redis()
     repo = RefreshTokenRepository(session)
     stored = await repo.get_by_hash(token_hash)
     if not stored or stored.revoked:
@@ -179,6 +184,16 @@ async def rotate_refresh_token(session: AsyncSession, token: str):
     if stored.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Refresh token expired")
 
+    cached_user_id = await redis.get(f"quizstudy:refresh:{token_hash}")
+    if cached_user_id is None:
+        ttl = int((stored.expires_at - datetime.now(timezone.utc)).total_seconds())
+        await redis.set(
+            f"quizstudy:refresh:{token_hash}",
+            str(stored.user_id),
+            ex=max(ttl, 1),
+        )
+
     await repo.revoke(stored.id)
+    await redis.delete(f"quizstudy:refresh:{token_hash}")
     new_token = await issue_refresh_token(session, stored.user_id)
     return new_token, stored.user_id

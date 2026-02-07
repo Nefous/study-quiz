@@ -10,6 +10,7 @@ from app.db.session import get_session
 from app.repositories.oauth_account_repo import OAuthAccountRepository
 from app.repositories.user_repo import UserRepository
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut
+from app.core.redis_client import get_redis
 from app.services.auth_service import (
     build_user_out,
     clear_refresh_cookie,
@@ -164,6 +165,8 @@ async def logout(
         stored = await repo.get_by_hash(hash_refresh_token(refresh_token))
         if stored:
             await repo.revoke(stored.id)
+        redis = await get_redis()
+        await redis.delete(f"quizstudy:refresh:{hash_refresh_token(refresh_token)}")
 
     clear_refresh_cookie(response)
     return {"ok": True}
@@ -177,7 +180,7 @@ async def me(user=Depends(get_current_user)) -> UserOut:
 @router.get("/google/login")
 async def google_login(return_url: str | None = Query(default=None)):
     _oauth_configured("google")
-    state = create_oauth_state(
+    state = await create_oauth_state(
         {
             "provider": "google",
             "returnUrl": return_url or "/",
@@ -207,7 +210,7 @@ async def google_callback(
         return RedirectResponse(url=_frontend_callback_url(False, error="missing_code"))
     _oauth_configured("google")
     try:
-        payload = verify_oauth_state(state)
+        payload = await verify_oauth_state(state)
     except HTTPException:
         return RedirectResponse(url=_frontend_callback_url(False, error="invalid_state"))
     if payload.get("provider") != "google":
@@ -264,7 +267,7 @@ async def google_callback(
 @router.get("/github/login")
 async def github_login(return_url: str | None = Query(default=None)):
     _oauth_configured("github")
-    state = create_oauth_state(
+    state = await create_oauth_state(
         {
             "provider": "github",
             "returnUrl": return_url or "/",
@@ -291,7 +294,7 @@ async def github_callback(
         return RedirectResponse(url=_frontend_callback_url(False, error="missing_code"))
     _oauth_configured("github")
     try:
-        payload = verify_oauth_state(state)
+        payload = await verify_oauth_state(state)
     except HTTPException:
         return RedirectResponse(url=_frontend_callback_url(False, error="invalid_state"))
     if payload.get("provider") != "github":
