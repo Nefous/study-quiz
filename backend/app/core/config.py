@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str | None = Field(default=None)
     GOOGLE_CLIENT_SECRET: str | None = Field(default=None)
     GOOGLE_REDIRECT_URI: str | None = Field(default=None)
+    GOOGLE_API_KEY: str | None = Field(default=None)
     GITHUB_CLIENT_ID: str | None = Field(default=None)
     GITHUB_CLIENT_SECRET: str | None = Field(default=None)
     GITHUB_REDIRECT_URI: str | None = Field(default=None)

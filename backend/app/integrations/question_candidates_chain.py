@@ -6,11 +6,13 @@ from typing import Any
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+GEMINI_MODEL = "gemini-3-flash-preview"
 
 SYSTEM_PROMPT = """
 You are generating interview-grade Python quiz questions.
@@ -194,10 +196,13 @@ class CandidateParseError(ValueError):
 
 async def generate_question_candidates(payload: dict[str, Any]) -> str:
     settings = get_settings()
-    llm = ChatGroq(
-        model=settings.GROQ_MODEL,
+    if not settings.GOOGLE_API_KEY:
+        raise RuntimeError("GOOGLE_API_KEY is required for Gemini question candidates")
+    llm = ChatGoogleGenerativeAI(
+        model=GEMINI_MODEL,
         temperature=settings.GROQ_TEMPERATURE,
-        max_tokens=7000,
+        max_output_tokens=12000,
+        google_api_key=settings.GOOGLE_API_KEY,
     )
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -206,10 +211,8 @@ async def generate_question_candidates(payload: dict[str, Any]) -> str:
         ]
     )
     chain = prompt | llm | StrOutputParser()
-    
-    raw_output = await chain.ainvoke(payload)
+    return await chain.ainvoke(payload)
 
-    return raw_output
 
 async def generate_question_candidates_items(
     payload: dict[str, Any],
