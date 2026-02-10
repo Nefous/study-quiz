@@ -67,8 +67,8 @@ async def generate_question_candidates_endpoint(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     settings = get_settings()
-    if not settings.GROQ_API_KEY:
-        raise HTTPException(status_code=503, detail="Groq not configured")
+    if not settings.GOOGLE_API_KEY:
+        raise HTTPException(status_code=503, detail="Gemini not configured")
 
     topic = body.topic or "random"
     qtype = body.qtype or "mixed"
@@ -91,7 +91,7 @@ async def generate_question_candidates_endpoint(
             raw_output=exc.raw_output,
             error=str(exc),
             prompt_version=body.prompt_version,
-            source_model=settings.GROQ_MODEL,
+            source_model=settings.GEMINI_QC_MODEL,
         )
         return {"created": 0, "failed": 1, "candidate_ids": []}
     except Exception as exc:
@@ -104,7 +104,7 @@ async def generate_question_candidates_endpoint(
             raw_output=None,
             error=str(exc),
             prompt_version=body.prompt_version,
-            source_model=settings.GROQ_MODEL,
+            source_model=settings.GEMINI_QC_MODEL,
         )
         return {"created": 0, "failed": 1, "candidate_ids": []}
 
@@ -115,7 +115,7 @@ async def generate_question_candidates_endpoint(
         fallback_difficulty=body.difficulty,
         fallback_type=body.qtype,
         prompt_version=body.prompt_version,
-        source_model=settings.GROQ_MODEL,
+        source_model=settings.GEMINI_QC_MODEL,
     )
     return {"created": len(created_ids), "failed": failed, "candidate_ids": created_ids}
 

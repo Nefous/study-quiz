@@ -52,7 +52,7 @@ def test_generate_question_candidates(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(question_candidates_chain, "generate_question_candidates", fake_generate)
 
     settings = config_module.get_settings()
-    monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GOOGLE_API_KEY", "test-key")
 
     fake_user = FakeUser(UUID("00000000-0000-0000-0000-000000000001"), "admin@example.com")
     app.dependency_overrides[get_admin_user] = lambda: fake_user
