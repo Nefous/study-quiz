@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
 from langchain_core.output_parsers import StrOutputParser
@@ -9,10 +8,6 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.core.config import get_settings
-
-logger = logging.getLogger(__name__)
-
-GEMINI_MODEL = "gemini-3-flash-preview"
 
 SYSTEM_PROMPT = """
 You are generating interview-grade Python quiz questions.
@@ -52,7 +47,7 @@ QUALITY CONSTRAINTS:
 - Explanations must be precise and technically correct.
 - For difficulty=middle:
   - At least 50% questions must include code (prompt snippet or code_output).
-  - Code examples should be at least 4–8 lines.
+  - Code examples should be at least 4-8 lines.
   - Include at least one hidden cost or trap:
     slicing inside loops, list/string concat in loops, pop(0), nested O(n) calls,
     recursion depth, mutable defaults, identity vs equality, hashing behavior,
@@ -67,7 +62,7 @@ TOPIC HEURISTICS:
 STRICT RULES:
 - Do NOT include any extra keys beyond what is listed above.
 - Do NOT include markdown fences or triple backticks anywhere.
-- Keep prompts concise (1–2 sentences).
+- Keep prompts concise (1-2 sentences).
 - For code_output: code must print something, and expected_output must be deterministic.
 - Avoid duplicates and near-duplicates across the generated questions.
 """.strip()
@@ -199,9 +194,9 @@ async def generate_question_candidates(payload: dict[str, Any]) -> str:
     if not settings.GOOGLE_API_KEY:
         raise RuntimeError("GOOGLE_API_KEY is required for Gemini question candidates")
     llm = ChatGoogleGenerativeAI(
-        model=GEMINI_MODEL,
-        temperature=settings.GROQ_TEMPERATURE,
-        max_output_tokens=12000,
+        model=settings.GEMINI_QC_MODEL,
+        temperature=settings.GEMINI_QC_TEMPERATURE,
+        max_output_tokens=settings.GEMINI_QC_MAX_OUTPUT_TOKENS,
         google_api_key=settings.GOOGLE_API_KEY,
     )
     prompt = ChatPromptTemplate.from_messages(
