@@ -30,7 +30,11 @@ class QuizService:
         requested_size = size or self.settings.DEFAULT_QUIZ_SIZE
         requested_size = min(requested_size, self.settings.MAX_QUESTIONS_PER_QUIZ)
 
-        cache_key = f"quizstudy:qcount:{topics}:{difficulty}:None"
+        if topics:
+            topics_key = ",".join(sorted(item.value for item in topics))
+        else:
+            topics_key = "none"
+        cache_key = f"quizstudy:qcount:{topics_key}:{difficulty}:None"
         available = await cached(
             cache_key,
             QCOUNT_CACHE_TTL,
