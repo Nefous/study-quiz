@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import invalidate, invalidate_pattern
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.services.auth_service import get_admin_user
@@ -239,6 +240,8 @@ async def publish_question_candidate(
     candidate, question_id = await publish_candidate(session, candidate)
     if candidate.status != "published":
         raise HTTPException(status_code=400, detail="Candidate publish failed")
+    await invalidate("quizstudy:meta")
+    await invalidate_pattern("quizstudy:qcount:*")
     return {
         "candidate": {
             "id": str(candidate.id),

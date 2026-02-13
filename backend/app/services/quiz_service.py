@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import cached
 from app.core.config import get_settings
 import random
 
@@ -9,6 +10,8 @@ from app.repositories.question_repo import QuestionRepository
 from app.repositories.attempt_answer_repo import AttemptAnswerRepository
 from app.schemas.quiz import QuizGenerateResponse, QuizQuestionOut
 from app.utils.enums import Difficulty, QuizMode, Topic
+
+QCOUNT_CACHE_TTL = 600
 
 
 class QuizService:
@@ -27,9 +30,14 @@ class QuizService:
         requested_size = size or self.settings.DEFAULT_QUIZ_SIZE
         requested_size = min(requested_size, self.settings.MAX_QUESTIONS_PER_QUIZ)
 
-        available = await repo.count_questions(
-            topics=topics or None,
-            difficulty=difficulty,
+        cache_key = f"quizstudy:qcount:{topics}:{difficulty}:None"
+        available = await cached(
+            cache_key,
+            QCOUNT_CACHE_TTL,
+            lambda: repo.count_questions(
+                topics=topics or None,
+                difficulty=difficulty,
+            ),
         )
         if available < requested_size:
             raise ValueError("Not enough questions for the requested filter")
@@ -82,9 +90,14 @@ class QuizService:
                 picked_ids.append(choice)
 
         if not picked_ids:
-            available = await repo.count_questions(
-                topic=topic,
-                difficulty=difficulty,
+            cache_key = f"quizstudy:qcount:{topic}:{difficulty}:None"
+            available = await cached(
+                cache_key,
+                QCOUNT_CACHE_TTL,
+                lambda: repo.count_questions(
+                    topic=topic,
+                    difficulty=difficulty,
+                ),
             )
             if available < requested_size:
                 raise ValueError("Not enough questions for the requested filter")

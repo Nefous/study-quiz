@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
+from app.core.cache import cached, invalidate_pattern
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.integrations.ai_review_chain import generate_ai_review, normalize_next_quiz_difficulty
@@ -29,6 +30,8 @@ from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/attempts", tags=["attempts"])
 logger = logging.getLogger(__name__)
+
+STATS_CACHE_TTL = 120
 
 
 def _to_out(attempt) -> AttemptOut:
@@ -173,6 +176,8 @@ async def create_attempt(
     answer_repo = AttemptAnswerRepository(session)
     await answer_repo.replace_for_attempt(attempt.id, user.id, attempt.answers or [])
 
+    await invalidate_pattern(f"quizstudy:user:{user.id}:stats:*")
+
     return _to_out(attempt)
 
 
@@ -278,6 +283,8 @@ async def submit_attempt(
     recommendation_repo = AiRecommendationRepository(session)
     await recommendation_repo.complete_by_attempt(user.id, attempt.id)
 
+    await invalidate_pattern(f"quizstudy:user:{user.id}:stats:*")
+
     logger.info("attempt submitted %s at %s", attempt.id, attempt.submitted_at)
     return _to_out(attempt)
 
@@ -377,12 +384,18 @@ async def get_attempt_stats(
     session: AsyncSession = Depends(get_session),
 ) -> AttemptStats:
     repo = QuizAttemptRepository(session)
-    stats = await repo.stats(
-        user_id=user.id,
-        topics=topics,
-        mode=mode,
-        date_from=date_from,
-        date_to=date_to,
+    cache_key = f"quizstudy:user:{user.id}:stats:{topics}:{mode}:{date_from}:{date_to}"
+
+    stats = await cached(
+        cache_key,
+        STATS_CACHE_TTL,
+        lambda: repo.stats(
+            user_id=user.id,
+            topics=topics,
+            mode=mode,
+            date_from=date_from,
+            date_to=date_to,
+        ),
     )
     return AttemptStats(
         total_attempts=stats["total_attempts"],
