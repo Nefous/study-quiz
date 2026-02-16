@@ -26,10 +26,16 @@ from app.services.auth_service import (
 from app.core.config import get_settings
 from passlib.context import CryptContext
 
+from app.utils.rate_limit import build_rate_limiter
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+auth_rate_limiter = build_rate_limiter(
+    user_times=5, user_seconds=300,
+    anon_times=10, anon_seconds=600,
+)
 
 
 def _hash_password(password: str) -> str:
@@ -91,6 +97,7 @@ async def _get_or_create_oauth_user(
 async def register(
     body: RegisterRequest,
     response: Response,
+    _rate_limiter=Depends(auth_rate_limiter),
     session: AsyncSession = Depends(get_session),
 ) -> TokenResponse:
     password_bytes = body.password.encode("utf-8")
@@ -118,6 +125,7 @@ async def register(
 async def login(
     body: LoginRequest,
     response: Response,
+    _rate_limiter=Depends(auth_rate_limiter),
     session: AsyncSession = Depends(get_session),
 ) -> TokenResponse:
     repo = UserRepository(session)

@@ -11,6 +11,7 @@ from app.repositories.hint_usage_repo import HintUsageRepository
 from app.repositories.question_repo import QuestionRepository
 from app.repositories.quiz_attempt_repo import QuizAttemptRepository
 from app.schemas.hint import HintRequest, HintResponse
+from app.services.auth_service import get_current_user
 from app.utils.enums import QuestionType
 from app.utils.rate_limit import ai_hint_rate_limiter
 
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 async def hint(
     question_id: UUID,
     body: HintRequest,
+    user=Depends(get_current_user),
     _rate_limiter=Depends(ai_hint_rate_limiter),
     session: AsyncSession = Depends(get_session),
 ) -> HintResponse:

@@ -2,7 +2,7 @@ import importlib
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -79,23 +79,26 @@ app.add_middleware(
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
-@app.get("/__debug")
-async def debug_info() -> dict:
-    routes: list[str] = []
-    has_hint_route = False
-    for route in app.routes:
-        if isinstance(route, APIRoute):
-            methods = sorted(method for method in route.methods or [] if method != "HEAD")
-            for method in methods:
-                routes.append(f"{method} {route.path}")
-            if "/hint" in route.path:
-                has_hint_route = True
-    return {
-        "api_v1_prefix": settings.API_V1_PREFIX,
-        "cors_origins": settings.CORS_ORIGINS,
-        "has_hint_route": has_hint_route,
-        "routes": routes,
-    }
+if settings.ENV.lower() in {"dev", "development", "local"}:
+    from app.services.auth_service import get_admin_user
+
+    @app.get("/__debug")
+    async def debug_info(_admin=Depends(get_admin_user)) -> dict:
+        routes: list[str] = []
+        has_hint_route = False
+        for route in app.routes:
+            if isinstance(route, APIRoute):
+                methods = sorted(method for method in route.methods or [] if method != "HEAD")
+                for method in methods:
+                    routes.append(f"{method} {route.path}")
+                if "/hint" in route.path:
+                    has_hint_route = True
+        return {
+            "api_v1_prefix": settings.API_V1_PREFIX,
+            "cors_origins": settings.CORS_ORIGINS,
+            "has_hint_route": has_hint_route,
+            "routes": routes,
+        }
 
 
 @app.exception_handler(StarletteHTTPException)
