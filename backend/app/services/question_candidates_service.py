@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
-import subprocess
 import asyncio
 import re
+import signal
+import threading
 from typing import Any
 
 from datetime import datetime
@@ -173,32 +175,52 @@ def _question_to_payload(question: Question) -> dict[str, Any]:
     }
 
 
+_SAFE_BUILTINS = {
+    "abs": abs, "all": all, "any": any, "bin": bin, "bool": bool,
+    "bytes": bytes, "chr": chr, "dict": dict, "divmod": divmod,
+    "enumerate": enumerate, "filter": filter, "float": float,
+    "format": format, "frozenset": frozenset, "hash": hash, "hex": hex,
+    "int": int, "isinstance": isinstance, "issubclass": issubclass,
+    "iter": iter, "len": len, "list": list, "map": map, "max": max,
+    "min": min, "next": next, "oct": oct, "ord": ord, "pow": pow,
+    "print": print, "range": range, "repr": repr, "reversed": reversed,
+    "round": round, "set": set, "slice": slice, "sorted": sorted,
+    "str": str, "sum": sum, "tuple": tuple, "type": type, "zip": zip,
+    "True": True, "False": False, "None": None,
+}
+
+
 async def _run_code_check(code: str, expected_output: str) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        try:
-            completed = subprocess.run(
-                ["python", "-I", "-c", code],
-                capture_output=True,
-                text=True,
-                timeout=2,
+        stdout_capture = io.StringIO()
+        restricted_globals = {"__builtins__": _SAFE_BUILTINS.copy()}
+        restricted_globals["__builtins__"]["print"] = (
+            lambda *args, **kwargs: print(
+                *args, **{**kwargs, "file": stdout_capture}
             )
-            stdout = (completed.stdout or "")[:10000]
-            stderr = (completed.stderr or "")[:10000]
-            return {
-                "exit_code": completed.returncode,
-                "stdout": stdout,
-                "stderr": stderr,
-                "timeout": False,
-            }
-        except subprocess.TimeoutExpired as exc:
-            stdout = (exc.stdout or "")[:10000] if exc.stdout else ""
-            stderr = (exc.stderr or "")[:10000] if exc.stderr else ""
-            return {
-                "exit_code": None,
-                "stdout": stdout,
-                "stderr": stderr,
-                "timeout": True,
-            }
+        )
+        result: dict[str, Any] = {
+            "exit_code": None, "stdout": "", "stderr": "", "timeout": False,
+        }
+        done = threading.Event()
+
+        def _exec_target() -> None:
+            try:
+                exec(code, restricted_globals)  # noqa: S102
+                result["exit_code"] = 0
+            except Exception as exc:
+                result["exit_code"] = 1
+                result["stderr"] = str(exc)[:10000]
+            finally:
+                result["stdout"] = stdout_capture.getvalue()[:10000]
+                done.set()
+
+        thread = threading.Thread(target=_exec_target, daemon=True)
+        thread.start()
+        finished = done.wait(timeout=2)
+        if not finished:
+            result["timeout"] = True
+        return result
 
     result = await asyncio.to_thread(_run)
     ok = (

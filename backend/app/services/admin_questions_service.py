@@ -24,7 +24,8 @@ def _apply_filters(
     if qtype:
         stmt = stmt.where(Question.type == qtype)
     if query:
-        stmt = stmt.where(Question.prompt.ilike(f"%{query}%"))
+        escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        stmt = stmt.where(Question.prompt.ilike(f"%{escaped}%", escape="\\"))
     if not include_archived:
         stmt = stmt.where(Question.archived_at.is_(None))
     return stmt

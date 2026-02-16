@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Any
 
@@ -8,6 +9,7 @@ from redis import asyncio as redis_asyncio
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 
 _redis: redis_asyncio.Redis | None = None
 _redis_failed = False
@@ -75,6 +77,17 @@ async def get_redis_real() -> redis_asyncio.Redis | None:
         try:
             _redis = await _connect_redis()
         except Exception:
+            settings = get_settings()
+            if settings.ENV not in ("dev", "local"):
+                raise RuntimeError(
+                    "Redis is required in production but connection failed. "
+                    "Set ENV=dev to allow MemoryStore fallback."
+                )
+            logger.critical(
+                "Redis unavailable — falling back to in-memory store. "
+                "Rate limiting, refresh tokens, and OAuth state will NOT "
+                "be shared across workers."
+            )
             _redis_failed = True
             return None
     return _redis
@@ -93,3 +106,4 @@ async def close_redis() -> None:
         return
     await _redis.close()
     _redis = None
+
