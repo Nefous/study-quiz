@@ -8,10 +8,12 @@ from app.utils.enums import AttemptType, Difficulty, QuestionType, QuizMode, Top
 class QuizGenerateRequest(BaseModel):
     topic: Topic | None = None
     topics: list[Topic] | None = None
-    difficulty: Difficulty
-    mode: QuizMode
+    difficulty: Difficulty | None = None
+    mode: QuizMode | None = None
     attempt_type: AttemptType | None = None
-    size: int | None = None
+    size: int | None = Field(default=None, gt=0)
+    limit: int | None = Field(default=None, gt=0)
+    attempt_id: UUID | None = None
 
 
 class QuizQuestionOut(BaseModel):

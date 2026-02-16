@@ -24,12 +24,15 @@ RateLimiter = _load_rate_limiter()
 
 
 def _get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
+    from app.core.config import get_settings
+
+    direct_ip = request.client.host if request.client else "unknown"
+    trusted = get_settings().TRUSTED_PROXY_IPS
+    if trusted and direct_ip in trusted:
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+    return direct_ip
 
 
 def _get_user_id(request: Request) -> str | None:

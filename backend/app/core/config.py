@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     GROQ_REVIEW_TEMPERATURE: float = Field(default=0.4)
     GROQ_REVIEW_MAX_TOKENS: int = Field(default=800)
     ADMIN_EMAILS: list[str] = Field(default=[])
+    TRUSTED_PROXY_IPS: set[str] = Field(default_factory=set)
     ENV: str = Field(default="prod")
 
     model_config = SettingsConfigDict(

@@ -114,11 +114,13 @@ async def validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
 ) -> JSONResponse:
+    is_auth_route = request.url.path.startswith(f"{settings.API_V1_PREFIX}/auth")
+    logged_body = "[REDACTED]" if is_auth_route else exc.body
     logger.warning(
         "validation error path=%s errors=%s body=%s",
         request.url.path,
         exc.errors(),
-        exc.body,
+        logged_body,
     )
     include_details = settings.LOG_LEVEL.lower() == "debug"
     if include_details:
