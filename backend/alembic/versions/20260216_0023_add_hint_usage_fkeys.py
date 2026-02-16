@@ -18,7 +18,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Nullify orphaned attempt_id values (column is nullable)
     op.execute(
         sa.text(
             "UPDATE hint_usages SET attempt_id = NULL "
@@ -26,7 +25,6 @@ def upgrade() -> None:
             "AND attempt_id NOT IN (SELECT id FROM quiz_attempts)"
         )
     )
-    # Delete rows with orphaned question_id (column is NOT NULL)
     op.execute(
         sa.text(
             "DELETE FROM hint_usages "
