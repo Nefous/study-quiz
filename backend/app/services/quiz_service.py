@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import cached
 from app.core.config import get_settings
+from app.core.exceptions import InsufficientQuestionsError
 import random
 
 from app.repositories.question_repo import QuestionRepository
@@ -44,7 +45,7 @@ class QuizService:
             ),
         )
         if available < requested_size:
-            raise ValueError("Not enough questions for the requested filter")
+            raise InsufficientQuestionsError("Not enough questions for the requested filter")
 
         picked = await repo.get_random_questions(
             topic=None,

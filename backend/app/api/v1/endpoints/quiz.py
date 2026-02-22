@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.schemas.quiz import QuizGenerateRequest, QuizGenerateResponse, QuizQuestionOut
 from app.services.quiz_service import QuizService
+from app.core.exceptions import InsufficientQuestionsError
 from app.utils.enums import AttemptType, Difficulty, QuizMode, Topic
 from app.repositories.quiz_attempt_repo import QuizAttemptRepository
 from app.repositories.question_repo import QuestionRepository
@@ -205,5 +206,5 @@ async def generate_quiz(
             )
         response.attempt_id = attempt.id
         return response
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except InsufficientQuestionsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
