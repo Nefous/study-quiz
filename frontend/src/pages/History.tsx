@@ -10,7 +10,7 @@ import {
   Trophy,
   X
 } from "lucide-react";
-import { getAttemptStats, listAttempts, difficultyLabels, modeLabels, topicLabels } from "../api";
+import { getAttemptStats, listAttemptsPaginated, difficultyLabels, modeLabels, topicLabels } from "../api";
 import type { AttemptOut, AttemptStats, Difficulty, QuizMode, Topic } from "../api/types";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -45,7 +45,9 @@ export default function History() {
   const { status } = useAuth();
   const [stats, setStats] = useState<AttemptStats | null>(null);
   const [attempts, setAttempts] = useState<AttemptOut[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -54,16 +56,19 @@ export default function History() {
     modes: []
   });
 
+  const PAGE_SIZE = 20;
+
   const loadHistory = useCallback(async () => {
     try {
       if (status !== "authed") return;
       setLoading(true);
       const [statsResponse, attemptsResponse] = await Promise.all([
         getAttemptStats(),
-        listAttempts(50, 0)
+        listAttemptsPaginated(PAGE_SIZE, 0)
       ]);
       setStats(statsResponse);
-      setAttempts(attemptsResponse);
+      setAttempts(attemptsResponse.items);
+      setTotal(attemptsResponse.total);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load history");
@@ -71,6 +76,20 @@ export default function History() {
       setLoading(false);
     }
   }, [status]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || attempts.length >= total) return;
+    try {
+      setLoadingMore(true);
+      const response = await listAttemptsPaginated(PAGE_SIZE, attempts.length);
+      setAttempts((prev) => [...prev, ...response.items]);
+      setTotal(response.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load more");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [attempts.length, total, loadingMore]);
 
   useEffect(() => {
     let active = true;
@@ -301,7 +320,7 @@ export default function History() {
           <div>
             <h2 className="text-lg font-semibold text-white">Recent Attempts</h2>
             <p className="text-sm text-slate-400">
-              {filteredAttempts.length} of {attempts.length} attempts
+              {filteredAttempts.length} of {total} total attempts
             </p>
           </div>
           <Button
@@ -527,6 +546,20 @@ export default function History() {
               </Button>
             }
           />
+        )}
+
+        {/* Load More */}
+        {attempts.length < total && (
+          <div className="flex justify-center pt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={loadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? "Loading…" : `Load More (${attempts.length} of ${total})`}
+            </Button>
+          </div>
         )}
       </Card>
     </div>
