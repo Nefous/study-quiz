@@ -12,7 +12,8 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 _redis: redis_asyncio.Redis | None = None
-_redis_failed = False
+_redis_failed_at: float | None = None
+_REDIS_RETRY_INTERVAL = 30  # seconds
 _redis_lock = asyncio.Lock()
 
 
@@ -64,18 +65,22 @@ async def _connect_redis() -> redis_asyncio.Redis:
 
 
 async def get_redis_real() -> redis_asyncio.Redis | None:
-    global _redis, _redis_failed
+    global _redis, _redis_failed_at
     if _redis is not None:
         return _redis
-    if _redis_failed:
-        return None
+    if _redis_failed_at is not None:
+        if (time.time() - _redis_failed_at) < _REDIS_RETRY_INTERVAL:
+            return None
+        # Retry window reached — try again
     async with _redis_lock:
         if _redis is not None:
             return _redis
-        if _redis_failed:
-            return None
+        if _redis_failed_at is not None:
+            if (time.time() - _redis_failed_at) < _REDIS_RETRY_INTERVAL:
+                return None
         try:
             _redis = await _connect_redis()
+            _redis_failed_at = None  # reset on success
         except Exception:
             settings = get_settings()
             if settings.ENV not in ("dev", "local"):
@@ -85,10 +90,10 @@ async def get_redis_real() -> redis_asyncio.Redis | None:
                 )
             logger.critical(
                 "Redis unavailable — falling back to in-memory store. "
-                "Rate limiting, refresh tokens, and OAuth state will NOT "
-                "be shared across workers."
+                "Will retry in %ds.",
+                _REDIS_RETRY_INTERVAL,
             )
-            _redis_failed = True
+            _redis_failed_at = time.time()
             return None
     return _redis
 

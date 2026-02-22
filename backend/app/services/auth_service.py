@@ -28,14 +28,16 @@ def hash_refresh_token(token: str) -> str:
     return sha256(token.encode("utf-8")).hexdigest()
 
 
-@lru_cache
+@lru_cache(maxsize=1)
 def _load_private_key() -> str:
+    """Cached forever — key rotation requires app restart."""
     path = Path(settings.JWT_PRIVATE_KEY_PATH)
-    return path.read_text(encoding="utf-8") 
+    return path.read_text(encoding="utf-8")
 
 
-@lru_cache
+@lru_cache(maxsize=1)
 def _load_public_key() -> str:
+    """Cached forever — key rotation requires app restart."""
     path = Path(settings.JWT_PUBLIC_KEY_PATH)
     return path.read_text(encoding="utf-8")
 

@@ -134,5 +134,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Cached singleton. Tests call ``get_settings.cache_clear()`` in conftest."""
     return Settings()
 

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 from typing import Any
@@ -40,21 +40,56 @@ def _to_out(attempt) -> AttemptOut:
         topic=attempt.topic,
         difficulty=attempt.difficulty,
         mode=attempt.mode,
-        attempt_type=getattr(attempt, "attempt_type", "normal"),
+        attempt_type=attempt.attempt_type or "normal",
         size=attempt.size,
         correct_count=attempt.correct_count,
         total_count=attempt.total_count,
         answers=attempt.answers,
-        meta=getattr(attempt, "meta", None),
-        started_at=getattr(attempt, "started_at", None),
-        finished_at=getattr(attempt, "finished_at", None),
-        submitted_at=getattr(attempt, "submitted_at", None),
-        time_limit_seconds=getattr(attempt, "time_limit_seconds", None),
-        time_spent_seconds=getattr(attempt, "time_spent_seconds", None),
-        timed_out=getattr(attempt, "timed_out", None),
+        meta=attempt.meta,
+        started_at=attempt.started_at,
+        finished_at=attempt.finished_at,
+        submitted_at=attempt.submitted_at,
+        time_limit_seconds=attempt.time_limit_seconds,
+        time_spent_seconds=attempt.time_spent_seconds,
+        timed_out=attempt.timed_out,
         created_at=attempt.created_at,
         score_percent=attempt.score_percent,
     )
+
+
+async def _recheck_exam_answers(
+    answers: list, question_repo: QuestionRepository
+) -> tuple[int, list[dict]]:
+    """Score exam answers server-side. Returns (correct_count, answers_payload)."""
+    question_ids: list[UUID] = []
+    for item in answers:
+        try:
+            question_ids.append(UUID(str(item.question_id)))
+        except ValueError:
+            continue
+
+    questions = await question_repo.get_by_ids(question_ids)
+    question_map = {str(q.id): q.correct_answer for q in questions}
+
+    correct_count = 0
+    answers_payload: list[dict] = []
+    for item in answers:
+        expected = question_map.get(str(item.question_id))
+        provided = item.selected_answer or ""
+        is_correct = False
+        if expected is not None:
+            is_correct = _normalize(expected) == _normalize(provided)
+        if is_correct:
+            correct_count += 1
+        answers_payload.append(
+            {
+                "question_id": str(item.question_id),
+                "selected_answer": item.selected_answer,
+                "is_correct": is_correct,
+            }
+        )
+
+    return correct_count, answers_payload
 
 
 def _normalize(value: str) -> str:
@@ -125,40 +160,19 @@ async def create_attempt(
 
     repo = QuizAttemptRepository(session)
     data = body.model_dump()
+    if data.get("answers"):
+        data["answers"] = [
+            {**a, "question_id": str(a["question_id"])} for a in data["answers"]
+        ]
     if not data.get("attempt_type"):
         data["attempt_type"] = "normal"
     if not data.get("submitted_at") and data.get("finished_at"):
-        data["submitted_at"] = datetime.utcnow()
+        data["submitted_at"] = datetime.now(timezone.utc)
     if body.mode == "exam":
-        question_ids: list[UUID] = []
-        for item in body.answers:
-            try:
-                question_ids.append(UUID(str(item.question_id)))
-            except ValueError:
-                continue
-
         question_repo = QuestionRepository(session)
-        questions = await question_repo.get_by_ids(question_ids)
-        question_map = {str(item.id): item.correct_answer for item in questions}
-
-        correct_count = 0
-        answers_payload = []
-        for item in body.answers:
-            expected = question_map.get(item.question_id)
-            provided = item.selected_answer or ""
-            is_correct = False
-            if expected is not None:
-                is_correct = _normalize(expected) == _normalize(provided)
-            if is_correct:
-                correct_count += 1
-            answers_payload.append(
-                {
-                    "question_id": item.question_id,
-                    "selected_answer": item.selected_answer,
-                    "is_correct": is_correct,
-                }
-            )
-
+        correct_count, answers_payload = await _recheck_exam_answers(
+            body.answers, question_repo
+        )
         data["correct_count"] = correct_count
         data["answers"] = answers_payload
     data["user_id"] = user.id
@@ -230,6 +244,10 @@ async def submit_attempt(
                 )
 
     data = body.model_dump()
+    if data.get("answers"):
+        data["answers"] = [
+            {**a, "question_id": str(a["question_id"])} for a in data["answers"]
+        ]
     if not data.get("attempt_type"):
         data["attempt_type"] = getattr(attempt, "attempt_type", "normal")
     if not data.get("topic"):
@@ -237,41 +255,16 @@ async def submit_attempt(
         data["topic"] = attempt.topic or fallback
 
     if body.mode == "exam":
-        question_ids: list[UUID] = []
-        for item in body.answers:
-            try:
-                question_ids.append(UUID(str(item.question_id)))
-            except ValueError:
-                continue
-
         question_repo = QuestionRepository(session)
-        questions = await question_repo.get_by_ids(question_ids)
-        question_map = {str(item.id): item.correct_answer for item in questions}
-
-        correct_count = 0
-        answers_payload = []
-        for item in body.answers:
-            expected = question_map.get(item.question_id)
-            provided = item.selected_answer or ""
-            is_correct = False
-            if expected is not None:
-                is_correct = _normalize(expected) == _normalize(provided)
-            if is_correct:
-                correct_count += 1
-            answers_payload.append(
-                {
-                    "question_id": item.question_id,
-                    "selected_answer": item.selected_answer,
-                    "is_correct": is_correct,
-                }
-            )
-
+        correct_count, answers_payload = await _recheck_exam_answers(
+            body.answers, question_repo
+        )
         data["correct_count"] = correct_count
         data["answers"] = answers_payload
 
     data["user_id"] = user.id
     data.pop("attempt_id", None)
-    data["submitted_at"] = datetime.utcnow()
+    data["submitted_at"] = datetime.now(timezone.utc)
     if not data.get("finished_at"):
         data["finished_at"] = data["submitted_at"]
 
@@ -362,16 +355,18 @@ async def get_attempt_review(
     return output
 
 
-@router.get("", response_model=list[AttemptOut])
+@router.get("")
 async def list_attempts(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     user=Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> list[AttemptOut]:
+) -> dict:
     repo = QuizAttemptRepository(session)
-    attempts = await repo.list_attempts(user_id=user.id, limit=limit, offset=offset)
-    return [_to_out(item) for item in attempts]
+    attempts, total = await repo.list_attempts(
+        user_id=user.id, limit=limit, offset=offset
+    )
+    return {"items": [_to_out(item) for item in attempts], "total": total}
 
 
 @router.get("/stats", response_model=AttemptStats)

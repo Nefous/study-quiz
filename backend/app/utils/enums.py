@@ -27,3 +27,15 @@ class QuizMode(StrEnum):
 class AttemptType(StrEnum):
     NORMAL = "normal"
     MISTAKES_REVIEW = "mistakes_review"
+
+
+def parse_enum(value: str, enum_cls, field: str):
+    """Parse a string into an enum member, raising HTTPException on failure."""
+    from fastapi import HTTPException
+
+    if not isinstance(value, str):
+        raise HTTPException(status_code=400, detail=f"Invalid {field}")
+    try:
+        return enum_cls(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid {field}") from exc

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
@@ -79,7 +79,7 @@ class AttemptAnswerRepository:
 
         unique_wrong = total_wrong
 
-        since = datetime.utcnow() - timedelta(days=30)
+        since = datetime.now(timezone.utc) - timedelta(days=30)
         recent_wrong_stmt = select(func.count()).where(
             latest_subq.c.rn == 1,
             latest_subq.c.is_correct.is_(False),
@@ -103,7 +103,7 @@ class AttemptAnswerRepository:
         difficulty: Difficulty | None = None,
         days: int = 30,
     ) -> list[tuple[UUID, int]]:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         latest_subq = (
             select(
                 AttemptAnswer.question_id,

@@ -9,7 +9,7 @@ import signal
 import threading
 from typing import Any
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -384,7 +384,7 @@ async def approve_candidate(
         return candidate
     candidate.status = "approved"
     candidate.approved_by_user_id = user_id
-    candidate.approved_at = datetime.utcnow()
+    candidate.approved_at = datetime.now(timezone.utc)
     await session.commit()
     await session.refresh(candidate)
     return candidate
@@ -399,7 +399,7 @@ async def reject_candidate(
     moderation = {
         "rejected": True,
         "reason": reason,
-        "at": datetime.utcnow().isoformat(),
+        "at": datetime.now(timezone.utc).isoformat(),
         "by": str(user_id),
     }
     candidate.validation_report_json = _merge_report(
@@ -540,7 +540,7 @@ async def publish_candidate(
         await session.flush()
 
     candidate.status = "published"
-    candidate.published_at = datetime.utcnow()
+    candidate.published_at = datetime.now(timezone.utc)
     candidate.validation_report_json = _merge_report(
         candidate.validation_report_json,
         {"published": {"question_id": str(question.id)}},

@@ -1,5 +1,5 @@
 from uuid import UUID
-from sqlalchemy import func, insert, select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,8 +14,13 @@ class QuestionRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def list_questions(self) -> list[Question]:
-        result = await self.session.execute(select(Question))
+    async def list_questions(
+        self, limit: int | None = None, offset: int = 0
+    ) -> list[Question]:
+        stmt = select(Question).offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.session.execute(stmt)
         return result.scalars().all()
 
     async def get_question_by_id(self, question_id) -> Question | None:
