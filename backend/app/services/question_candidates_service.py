@@ -271,21 +271,21 @@ async def validate_candidate(
         await session.refresh(candidate)
         return candidate
 
-    questions = await session.execute(select(Question))
-    for question in questions.scalars().all():
-        question_payload = _question_to_payload(question)
-        question_hash = _simhash64(_stable_string(question_payload))
-        if question_hash == simhash:
-            report["dedupe"] = {
-                "ok": False,
-                "reason": "duplicate_question",
-                "question_id": str(question.id),
-            }
-            candidate.status = "failed"
-            candidate.validation_report_json = report
-            await session.commit()
-            await session.refresh(candidate)
-            return candidate
+    dup_q_result = await session.execute(
+        select(Question).where(Question.simhash == simhash).limit(1)
+    )
+    dup_question = dup_q_result.scalar_one_or_none()
+    if dup_question:
+        report["dedupe"] = {
+            "ok": False,
+            "reason": "duplicate_question",
+            "question_id": str(dup_question.id),
+        }
+        candidate.status = "failed"
+        candidate.validation_report_json = report
+        await session.commit()
+        await session.refresh(candidate)
+        return candidate
 
     report["dedupe"] = {"ok": True}
 
@@ -534,7 +534,8 @@ async def publish_candidate(
     if not question:
         seed_payload = f"{fields['topic']}|{fields['difficulty']}|{fields['type']}|{fields['prompt']}|{fields.get('code') or ''}"
         seed_key = hashlib.sha256(seed_payload.encode("utf-8")).hexdigest()[:64]
-        question = Question(**fields, seed_key=seed_key)
+        q_simhash = _simhash64(_stable_string(normalized))
+        question = Question(**fields, seed_key=seed_key, simhash=q_simhash)
         session.add(question)
         await session.flush()
 
