@@ -105,6 +105,35 @@ class AttemptAnswerRepository:
     ) -> list[tuple[UUID, int]]:
         since = datetime.now(timezone.utc) - timedelta(days=days)
 
+        # Subquery: for each question, find whether the latest answer is wrong
+        latest_subq = (
+            select(
+                AttemptAnswer.question_id,
+                AttemptAnswer.is_correct,
+                func.row_number()
+                .over(
+                    partition_by=AttemptAnswer.question_id,
+                    order_by=AttemptAnswer.created_at.desc(),
+                )
+                .label("rn"),
+            )
+            .where(
+                AttemptAnswer.user_id == user_id,
+                AttemptAnswer.created_at >= since,
+            )
+            .subquery()
+        )
+
+        # Only questions whose most recent answer is wrong
+        still_wrong = (
+            select(latest_subq.c.question_id)
+            .where(
+                latest_subq.c.rn == 1,
+                latest_subq.c.is_correct.is_(False),
+            )
+            .subquery()
+        )
+
         stmt = (
             select(
                 AttemptAnswer.question_id,
@@ -115,6 +144,7 @@ class AttemptAnswerRepository:
                 AttemptAnswer.user_id == user_id,
                 AttemptAnswer.is_correct.is_(False),
                 AttemptAnswer.created_at >= since,
+                AttemptAnswer.question_id.in_(select(still_wrong.c.question_id)),
             )
             .group_by(AttemptAnswer.question_id)
         )
