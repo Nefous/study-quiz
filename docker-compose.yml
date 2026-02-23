@@ -31,7 +31,7 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "${APP_PORT:-8000}:${APP_PORT:-8000}"
+      - "127.0.0.1:${APP_PORT:-8000}:${APP_PORT:-8000}"
 
   redis:
     image: redis:7-alpine
@@ -50,7 +50,7 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL}
     ports:
-      - "5173:80"
+      - "127.0.0.1:5173:80"
     depends_on:
       backend:
         condition: service_started
