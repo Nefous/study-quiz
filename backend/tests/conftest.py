@@ -105,6 +105,7 @@ def app_instance(database_url: str):
     get_settings.cache_clear()
     from app.main import app
 
+    app.state.rate_limit_enabled = False
     return app
 
 

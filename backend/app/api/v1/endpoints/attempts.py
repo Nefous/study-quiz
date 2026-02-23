@@ -18,6 +18,7 @@ from app.repositories.question_repo import QuestionRepository
 from app.schemas.attempts import (
     AiReviewResponse,
     AttemptCreate,
+    AttemptListResponse,
     AttemptSubmit,
     AttemptOut,
     AttemptReviewItem,
@@ -355,18 +356,18 @@ async def get_attempt_review(
     return output
 
 
-@router.get("")
+@router.get("", response_model=AttemptListResponse)
 async def list_attempts(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     user=Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> dict:
+) -> AttemptListResponse:
     repo = QuizAttemptRepository(session)
     attempts, total = await repo.list_attempts(
         user_id=user.id, limit=limit, offset=offset
     )
-    return {"items": [_to_out(item) for item in attempts], "total": total}
+    return AttemptListResponse(items=[_to_out(item) for item in attempts], total=total)
 
 
 @router.get("/stats", response_model=AttemptStats)

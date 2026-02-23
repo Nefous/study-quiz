@@ -185,12 +185,12 @@ class QuizAttemptRepository:
         attempt_dates: set[date] = set()
         if all_dates:
             attempt_dates = {d for d in all_dates if d is not None}
-        today = datetime.now(timezone.utc).date()
         current_streak = 0
-        cursor = today
-        while cursor in attempt_dates:
-            current_streak += 1
-            cursor = cursor - timedelta(days=1)
+        if attempt_dates:
+            cursor = max(attempt_dates)
+            while cursor in attempt_dates:
+                current_streak += 1
+                cursor = cursor - timedelta(days=1)
 
         eligible_topics = [item for item in by_topic if item["attempts"] >= 5]
         strongest_topic = None

@@ -11,8 +11,8 @@ class QuizGenerateRequest(BaseModel):
     difficulty: Difficulty | None = None
     mode: QuizMode | None = None
     attempt_type: AttemptType | None = None
-    size: int | None = Field(default=None, gt=0)
-    limit: int | None = Field(default=None, gt=0)
+    size: int | None = Field(default=None, gt=0, description="Number of questions to include in the quiz")
+    limit: int | None = Field(default=None, gt=0, description="Alias for size, used with mistakes_review")
     attempt_id: UUID | None = None
 
 

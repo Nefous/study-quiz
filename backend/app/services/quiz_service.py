@@ -85,7 +85,18 @@ class QuizService:
             ids = [item[0] for item in wrong_counts]
             weights = [item[1] or 1 for item in wrong_counts]
             sample_size = min(requested_size, len(ids))
-            picked_ids = random.sample(ids, k=sample_size, counts=weights)
+            # Use random.choices with dedup to avoid duplicates from counts expansion
+            seen: set[uuid.UUID] = set()
+            max_attempts = sample_size * 10
+            attempt_count = 0
+            while len(seen) < sample_size and attempt_count < max_attempts:
+                batch = random.choices(ids, weights=weights, k=sample_size - len(seen))
+                for item in batch:
+                    seen.add(item)
+                    if len(seen) >= sample_size:
+                        break
+                attempt_count += 1
+            picked_ids = list(seen)[:sample_size]
 
         if not picked_ids:
             cache_key = f"quizstudy:qcount:{topic}:{difficulty}:None"
@@ -98,7 +109,9 @@ class QuizService:
                 ),
             )
             if available < requested_size:
-                raise ValueError("Not enough questions for the requested filter")
+                raise InsufficientQuestionsError(
+                    "Not enough questions for the requested filter"
+                )
             picked = await repo.get_random_questions(
                 topic=topic,
                 topics=[topic] if topic else None,

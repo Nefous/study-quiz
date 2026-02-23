@@ -30,12 +30,10 @@ class AttemptType(StrEnum):
 
 
 def parse_enum(value: str, enum_cls, field: str):
-    """Parse a string into an enum member, raising HTTPException on failure."""
-    from fastapi import HTTPException
-
+    """Parse a string into an enum member, raising ValueError on failure."""
     if not isinstance(value, str):
-        raise HTTPException(status_code=400, detail=f"Invalid {field}")
+        raise ValueError(f"Invalid {field}")
     try:
         return enum_cls(value)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid {field}") from exc
+    except ValueError:
+        raise ValueError(f"Invalid {field}")

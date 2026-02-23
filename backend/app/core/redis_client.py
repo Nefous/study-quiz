@@ -83,7 +83,7 @@ async def get_redis_real() -> redis_asyncio.Redis | None:
             _redis_failed_at = None  # reset on success
         except Exception:
             settings = get_settings()
-            if settings.ENV not in ("dev", "local"):
+            if settings.ENV.lower() not in {"dev", "development", "local"}:
                 raise RuntimeError(
                     "Redis is required in production but connection failed. "
                     "Set ENV=dev to allow MemoryStore fallback."

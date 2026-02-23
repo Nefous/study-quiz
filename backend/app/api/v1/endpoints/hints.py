@@ -34,9 +34,11 @@ async def hint(
     if body.attempt_id:
         attempt_repo = QuizAttemptRepository(session)
         attempt = await attempt_repo.get_by_id(body.attempt_id)
-        if attempt and attempt.user_id != user.id:
+        if not attempt:
             raise HTTPException(status_code=404, detail="Attempt not found")
-        if attempt and attempt.mode == "exam":
+        if attempt.user_id != user.id:
+            raise HTTPException(status_code=404, detail="Attempt not found")
+        if attempt.mode == "exam":
             raise HTTPException(status_code=403, detail="HINTS_DISABLED_IN_EXAM")
 
     repo = QuestionRepository(session)

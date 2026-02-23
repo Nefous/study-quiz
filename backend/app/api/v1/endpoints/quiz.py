@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timezone
 
 from app.db.session import get_session
 from app.schemas.quiz import QuizGenerateRequest, QuizGenerateResponse, QuizQuestionOut
@@ -9,10 +10,41 @@ from app.core.exceptions import InsufficientQuestionsError
 from app.utils.enums import AttemptType, Difficulty, QuizMode, Topic
 from app.repositories.quiz_attempt_repo import QuizAttemptRepository
 from app.repositories.question_repo import QuestionRepository
-from datetime import datetime
 from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/quiz")
+
+
+def _parse_topics(body: QuizGenerateRequest) -> list[Topic] | None:
+    """Parse and expand topics from the request body, handling Topic.RANDOM."""
+    if body.topics is not None:
+        if not body.topics:
+            raise HTTPException(status_code=400, detail="Invalid topics")
+        topics = list(body.topics)
+        if Topic.RANDOM in topics:
+            topics = [t for t in Topic if t != Topic.RANDOM]
+        return topics
+    if body.topic is not None:
+        if body.topic == Topic.RANDOM:
+            return [t for t in Topic if t != Topic.RANDOM]
+        return [body.topic]
+    return None
+
+
+def _build_meta(
+    topics: list[Topic] | None, question_ids: list[str]
+) -> tuple[str, dict]:
+    """Build topic_value and meta dict for attempt storage."""
+    topic_value = "random"
+    meta: dict = {}
+    if topics:
+        if len(topics) == 1:
+            topic_value = topics[0].value
+        else:
+            topic_value = "mix"
+            meta["topics"] = [item.value for item in topics]
+    meta["questions"] = question_ids
+    return topic_value, meta
 
 
 @router.post("/generate", response_model=QuizGenerateResponse)
@@ -30,31 +62,12 @@ async def generate_quiz(
 
     mode = body.mode or QuizMode.PRACTICE
 
-    topics: list[Topic] | None = None
-
     if attempt_type != AttemptType.MISTAKES_REVIEW:
-        if body.topics is not None:
-            if not body.topics:
-                raise HTTPException(status_code=400, detail="Invalid topics")
-            topics = list(body.topics)
-            if Topic.RANDOM in topics:
-                topics = [t for t in Topic if t != Topic.RANDOM]
-        elif body.topic is not None:
-            if body.topic == Topic.RANDOM:
-                topics = [t for t in Topic if t != Topic.RANDOM]
-            else:
-                topics = [body.topic]
-        else:
+        topics = _parse_topics(body)
+        if topics is None:
             raise HTTPException(status_code=400, detail="Missing topic or topics")
     else:
-        if body.topics is not None:
-            if not body.topics:
-                raise HTTPException(status_code=400, detail="Invalid topics")
-            topics = list(body.topics)
-            if Topic.RANDOM in topics:
-                topics = [t for t in Topic if t != Topic.RANDOM]
-        elif body.topic is not None:
-            topics = [body.topic]
+        topics = _parse_topics(body)
 
     topics = list(dict.fromkeys(topics)) if topics else None
     difficulty = body.difficulty
@@ -83,7 +96,7 @@ async def generate_quiz(
                         except Exception:
                             continue
                     questions = await question_repo.get_by_ids(question_ids)
-                    question_map = {str(q.id): q for q in questions}
+                    question_map = {q.id: q for q in questions}
                     ordered = [question_map[qid] for qid in question_ids if qid in question_map]
                     if ordered:
                         response = QuizGenerateResponse(
@@ -103,18 +116,8 @@ async def generate_quiz(
                 difficulty=difficulty,
                 limit=size,
             )
-            question_ids = [str(item.id) for item in response.questions]
-            topic_value = "random"
-            meta = None
-            if topics:
-                if len(topics) == 1:
-                    topic_value = topics[0].value
-                else:
-                    topic_value = "mix"
-                    meta = {"topics": [item.value for item in topics]}
-            if meta is None:
-                meta = {}
-            meta["questions"] = question_ids
+            question_ids_str = [str(item.id) for item in response.questions]
+            topic_value, meta = _build_meta(topics, question_ids_str)
             if existing:
                 attempt = await attempt_repo.update_attempt(
                     existing,
@@ -128,7 +131,7 @@ async def generate_quiz(
                         "total_count": len(response.questions),
                         "answers": [],
                         "meta": meta,
-                        "started_at": existing.started_at or datetime.utcnow(),
+                        "started_at": existing.started_at or datetime.now(timezone.utc),
                     },
                 )
             else:
@@ -144,7 +147,7 @@ async def generate_quiz(
                         "total_count": len(response.questions),
                         "answers": [],
                         "meta": meta,
-                        "started_at": datetime.utcnow(),
+                        "started_at": datetime.now(timezone.utc),
                     }
                 )
             response.attempt_id = attempt.id
@@ -158,17 +161,8 @@ async def generate_quiz(
             size=size,
         )
         attempt_repo = QuizAttemptRepository(session)
-        topic_value = "random"
-        meta = None
-        if topics:
-            if len(topics) == 1:
-                topic_value = topics[0].value
-            else:
-                topic_value = "mix"
-                meta = {"topics": [item.value for item in topics]}
-        if meta is None:
-            meta = {}
-        meta["questions"] = [str(item.id) for item in response.questions]
+        question_ids_str = [str(item.id) for item in response.questions]
+        topic_value, meta = _build_meta(topics, question_ids_str)
         if attempt_id:
             attempt = await attempt_repo.get_by_id(attempt_id)
             if not attempt or attempt.user_id != user.id:
@@ -185,7 +179,7 @@ async def generate_quiz(
                     "total_count": len(response.questions),
                     "answers": [],
                     "meta": meta,
-                    "started_at": attempt.started_at or datetime.utcnow(),
+                    "started_at": attempt.started_at or datetime.now(timezone.utc),
                 },
             )
         else:
@@ -201,10 +195,10 @@ async def generate_quiz(
                     "total_count": len(response.questions),
                     "answers": [],
                     "meta": meta,
-                    "started_at": datetime.utcnow(),
+                    "started_at": datetime.now(timezone.utc),
                 }
             )
         response.attempt_id = attempt.id
         return response
     except InsufficientQuestionsError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

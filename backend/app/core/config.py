@@ -54,6 +54,20 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
+    @field_validator("TRUSTED_PROXY_IPS", mode="before")
+    @classmethod
+    def _parse_trusted_proxy_ips(cls, value):
+        if value is None:
+            return set()
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return set()
+            return {item.strip() for item in raw.split(",") if item.strip()}
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return {str(item).strip() for item in value if str(item).strip()}
+        return set()
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value):

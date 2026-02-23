@@ -14,20 +14,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir -U pip \
     && pip install --no-cache-dir uv
 
-COPY pyproject.toml /app/
-COPY uv.lock /app/
+RUN adduser --disabled-password --gecos "" appuser
+
+COPY --chown=appuser:appuser pyproject.toml /app/
+COPY --chown=appuser:appuser uv.lock /app/
 
 RUN uv sync --frozen --no-dev
 
-COPY app /app/app
-COPY alembic /app/alembic
-COPY alembic.ini /app/alembic.ini
-COPY entrypoint.sh /app/entrypoint.sh
+COPY --chown=appuser:appuser app /app/app
+COPY --chown=appuser:appuser alembic /app/alembic
+COPY --chown=appuser:appuser alembic.ini /app/alembic.ini
+COPY --chown=appuser:appuser entrypoint.sh /app/entrypoint.sh
 
 RUN chmod +x /app/entrypoint.sh
 
-RUN adduser --disabled-password appuser \
-    && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000

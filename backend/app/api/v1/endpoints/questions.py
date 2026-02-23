@@ -20,13 +20,16 @@ async def list_questions(
     difficulty: str | None = Query(default=None),
     qtype: str | None = Query(default=None, alias="type"),
     limit: int | None = Query(default=50, ge=1, le=200),
-    user=Depends(get_current_user),
+    _user=Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[QuestionOut]:
     repo = QuestionRepository(session)
-    topic_enum = parse_enum(topic, Topic, "topic") if topic else None
-    difficulty_enum = parse_enum(difficulty, Difficulty, "difficulty") if difficulty else None
-    type_enum = parse_enum(qtype, QuestionType, "type") if qtype else None
+    try:
+        topic_enum = parse_enum(topic, Topic, "topic") if topic else None
+        difficulty_enum = parse_enum(difficulty, Difficulty, "difficulty") if difficulty else None
+        type_enum = parse_enum(qtype, QuestionType, "type") if qtype else None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     questions = await repo.list_questions_filtered(
         topic=topic_enum,
@@ -47,8 +50,11 @@ async def list_favorite_questions(
     session: AsyncSession = Depends(get_session),
 ) -> list[QuestionOut]:
     repo = QuestionFavoriteRepository(session)
-    topic_enum = parse_enum(topic, Topic, "topic") if topic else None
-    difficulty_enum = parse_enum(difficulty, Difficulty, "difficulty") if difficulty else None
+    try:
+        topic_enum = parse_enum(topic, Topic, "topic") if topic else None
+        difficulty_enum = parse_enum(difficulty, Difficulty, "difficulty") if difficulty else None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     favorites = await repo.list_favorites(
         user_id=user.id,
@@ -109,5 +115,3 @@ async def unfavorite_question(
     repo = QuestionFavoriteRepository(session)
     await repo.remove_favorite(user.id, question_id)
     return {"ok": True}
-
-

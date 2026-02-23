@@ -32,23 +32,35 @@ def upgrade() -> None:
         )
     )
 
-    op.create_foreign_key(
-        "fk_hint_usages_attempt_id",
-        "hint_usages",
-        "quiz_attempts",
-        ["attempt_id"],
-        ["id"],
+    op.execute(
+        sa.text(
+            "ALTER TABLE hint_usages "
+            "ADD CONSTRAINT fk_hint_usages_attempt_id "
+            "FOREIGN KEY (attempt_id) REFERENCES quiz_attempts(id) "
+            "ON DELETE SET NULL NOT VALID"
+        )
     )
-    op.create_foreign_key(
-        "fk_hint_usages_question_id",
-        "hint_usages",
-        "questions",
-        ["question_id"],
-        ["id"],
+    op.execute(
+        sa.text(
+            "ALTER TABLE hint_usages VALIDATE CONSTRAINT fk_hint_usages_attempt_id"
+        )
+    )
+
+    op.execute(
+        sa.text(
+            "ALTER TABLE hint_usages "
+            "ADD CONSTRAINT fk_hint_usages_question_id "
+            "FOREIGN KEY (question_id) REFERENCES questions(id) "
+            "ON DELETE CASCADE NOT VALID"
+        )
+    )
+    op.execute(
+        sa.text(
+            "ALTER TABLE hint_usages VALIDATE CONSTRAINT fk_hint_usages_question_id"
+        )
     )
 
 
 def downgrade() -> None:
     op.drop_constraint("fk_hint_usages_question_id", "hint_usages", type_="foreignkey")
     op.drop_constraint("fk_hint_usages_attempt_id", "hint_usages", type_="foreignkey")
-
