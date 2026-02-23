@@ -8,7 +8,6 @@ import type {
   QuizMode,
   AttemptCreate,
   AttemptOut,
-  AttemptCreate,
   AttemptReviewItem,
   AttemptStats,
   QuizQuestion,
@@ -69,9 +68,7 @@ export async function submitAttempt(
 }
 
 export async function listAttempts(limit = 20, offset = 0): Promise<AttemptOut[]> {
-  const data = await request<{ items: AttemptOut[]; total: number }>(
-    apiUrl(`/attempts?limit=${limit}&offset=${offset}`)
-  );
+  const data = await listAttemptsPaginated(limit, offset);
   return data.items;
 }
 

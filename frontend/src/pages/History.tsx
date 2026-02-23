@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart3,
@@ -40,6 +40,8 @@ const TOPIC_BADGE_LABELS: Record<string, string> = {
 const ALL_DIFFICULTIES: Difficulty[] = ["junior", "middle"];
 const ALL_MODES: QuizMode[] = ["practice", "exam"];
 
+const PAGE_SIZE = 20;
+
 export default function History() {
   const navigate = useNavigate();
   const { status } = useAuth();
@@ -56,7 +58,8 @@ export default function History() {
     modes: []
   });
 
-  const PAGE_SIZE = 20;
+  const offsetRef = useRef(0);
+  const loadingMoreRef = useRef(false);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -69,6 +72,7 @@ export default function History() {
       setStats(statsResponse);
       setAttempts(attemptsResponse.items);
       setTotal(attemptsResponse.total);
+      offsetRef.current = attemptsResponse.items.length;
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load history");
@@ -78,18 +82,21 @@ export default function History() {
   }, [status]);
 
   const loadMore = useCallback(async () => {
-    if (loadingMore || attempts.length >= total) return;
+    if (loadingMoreRef.current || offsetRef.current >= total) return;
     try {
+      loadingMoreRef.current = true;
       setLoadingMore(true);
-      const response = await listAttemptsPaginated(PAGE_SIZE, attempts.length);
+      const response = await listAttemptsPaginated(PAGE_SIZE, offsetRef.current);
       setAttempts((prev) => [...prev, ...response.items]);
+      offsetRef.current += response.items.length;
       setTotal(response.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load more");
     } finally {
+      loadingMoreRef.current = false;
       setLoadingMore(false);
     }
-  }, [attempts.length, total, loadingMore]);
+  }, [total]);
 
   useEffect(() => {
     let active = true;
@@ -320,7 +327,9 @@ export default function History() {
           <div>
             <h2 className="text-lg font-semibold text-white">Recent Attempts</h2>
             <p className="text-sm text-slate-400">
-              {filteredAttempts.length} of {total} total attempts
+              {activeFilterCount > 0
+                ? `${filteredAttempts.length} of ${attempts.length} loaded (${total} total) matching filters`
+                : `${attempts.length} of ${total} total attempts`}
             </p>
           </div>
           <Button
