@@ -104,34 +104,23 @@ class AttemptAnswerRepository:
         days: int = 30,
     ) -> list[tuple[UUID, int]]:
         since = datetime.now(timezone.utc) - timedelta(days=days)
-        latest_subq = (
-            select(
-                AttemptAnswer.question_id,
-                AttemptAnswer.is_correct,
-                AttemptAnswer.created_at,
-                func.row_number()
-                .over(
-                    partition_by=AttemptAnswer.question_id,
-                    order_by=AttemptAnswer.created_at.desc(),
-                )
-                .label("rn"),
-            )
-            .where(AttemptAnswer.user_id == user_id)
-            .subquery()
-        )
 
         stmt = (
-            select(latest_subq.c.question_id)
-            .join(Question, Question.id == latest_subq.c.question_id)
-            .where(
-                latest_subq.c.rn == 1,
-                latest_subq.c.is_correct.is_(False),
-                latest_subq.c.created_at >= since,
+            select(
+                AttemptAnswer.question_id,
+                func.count().label("wrong_count"),
             )
+            .join(Question, Question.id == AttemptAnswer.question_id)
+            .where(
+                AttemptAnswer.user_id == user_id,
+                AttemptAnswer.is_correct.is_(False),
+                AttemptAnswer.created_at >= since,
+            )
+            .group_by(AttemptAnswer.question_id)
         )
         if topic is not None:
             stmt = stmt.where(Question.topic == topic)
         if difficulty is not None:
             stmt = stmt.where(Question.difficulty == difficulty)
         result = await self.session.execute(stmt)
-        return [(row[0], 1) for row in result.all()]
+        return [(row[0], row[1]) for row in result.all()]

@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, select, type_coerce
+from sqlalchemy.dialects.postgresql import ARRAY, DATE
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.quiz_attempt import QuizAttempt
@@ -110,9 +111,15 @@ class QuizAttemptRepository:
             func.avg(QuizAttempt.score_percent),
             func.max(QuizAttempt.score_percent),
             func.max(QuizAttempt.created_at),
+            type_coerce(
+                func.array_agg(func.distinct(func.date(QuizAttempt.created_at))),
+                ARRAY(DATE),
+            ),
         ).where(*filters)
         totals_result = await self.session.execute(totals_stmt)
-        total_attempts, avg_score, best_score, last_attempt_at = totals_result.one()
+        total_attempts, avg_score, best_score, last_attempt_at, all_dates = (
+            totals_result.one()
+        )
 
         attempts_stmt = (
             select(QuizAttempt.topic, QuizAttempt.score_percent, QuizAttempt.meta)
@@ -175,17 +182,9 @@ class QuizAttemptRepository:
         recent_attempts.reverse()
         recent_scores = [item["score_percent"] for item in recent_attempts]
 
-        streak_stmt = (
-            select(func.date(QuizAttempt.created_at))
-            .where(*filters)
-            .distinct()
-        )
-        streak_result = await self.session.execute(streak_stmt)
-        attempt_dates = {
-            row[0]
-            for row in streak_result.all()
-            if row and row[0] is not None
-        }
+        attempt_dates: set[date] = set()
+        if all_dates:
+            attempt_dates = {d for d in all_dates if d is not None}
         today = datetime.now(timezone.utc).date()
         current_streak = 0
         cursor = today

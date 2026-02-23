@@ -84,15 +84,8 @@ class QuizService:
         if wrong_counts:
             ids = [item[0] for item in wrong_counts]
             weights = [item[1] or 1 for item in wrong_counts]
-            seen = set()
-            attempts = 0
-            while len(picked_ids) < min(requested_size, len(ids)) and attempts < 500:
-                attempts += 1
-                choice = random.choices(ids, weights=weights, k=1)[0]
-                if choice in seen:
-                    continue
-                seen.add(choice)
-                picked_ids.append(choice)
+            sample_size = min(requested_size, len(ids))
+            picked_ids = random.sample(ids, k=sample_size, counts=weights)
 
         if not picked_ids:
             cache_key = f"quizstudy:qcount:{topic}:{difficulty}:None"

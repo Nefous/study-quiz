@@ -92,17 +92,18 @@ class QuestionRepository:
         qtype: QuestionType | None,
         limit: int,
     ) -> list[Question]:
-        stmt = select(Question)
+        id_subq = select(Question.id)
         if topics:
-            stmt = stmt.where(Question.topic.in_(topics))
+            id_subq = id_subq.where(Question.topic.in_(topics))
         elif topic is not None:
-            stmt = stmt.where(Question.topic == topic)
+            id_subq = id_subq.where(Question.topic == topic)
         if difficulty is not None:
-            stmt = stmt.where(Question.difficulty == difficulty)
+            id_subq = id_subq.where(Question.difficulty == difficulty)
         if qtype is not None:
-            stmt = stmt.where(Question.type == qtype)
+            id_subq = id_subq.where(Question.type == qtype)
 
-        stmt = stmt.order_by(func.random()).limit(limit)
+        id_subq = id_subq.order_by(func.random()).limit(limit)
+        stmt = select(Question).where(Question.id.in_(id_subq))
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
