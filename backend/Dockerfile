@@ -19,7 +19,8 @@ RUN adduser --disabled-password --gecos "" appuser
 COPY --chown=appuser:appuser pyproject.toml /app/
 COPY --chown=appuser:appuser uv.lock /app/
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev \
+    && chown -R appuser:appuser /app/.venv
 
 COPY --chown=appuser:appuser app /app/app
 COPY --chown=appuser:appuser alembic /app/alembic
