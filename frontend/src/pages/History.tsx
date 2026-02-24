@@ -91,14 +91,18 @@ export default function History() {
       loadingMoreRef.current = true;
       setLoadingMore(true);
       const response = await listAttemptsPaginated(PAGE_SIZE, offsetRef.current);
+      if (!activeRef.current) return;
       setAttempts((prev) => [...prev, ...response.items]);
       offsetRef.current += response.items.length;
       setTotal(response.total);
     } catch (err) {
+      if (!activeRef.current) return;
       setError(err instanceof Error ? err.message : "Failed to load more");
     } finally {
-      loadingMoreRef.current = false;
-      setLoadingMore(false);
+      if (activeRef.current) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
     }
   }, [total]);
 

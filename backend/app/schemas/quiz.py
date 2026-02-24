@@ -20,8 +20,12 @@ class QuizGenerateRequest(BaseModel):
     @classmethod
     def normalize_size_limit(cls, values: Any) -> Any:
         if isinstance(values, dict):
-            if values.get("size") is None and values.get("limit") is not None:
-                values["size"] = values["limit"]
+            s = values.get("size")
+            l = values.get("limit")
+            if s is not None and l is not None and s != l:
+                raise ValueError("size and limit conflict: provide only one")
+            if s is None and l is not None:
+                values["size"] = l
         return values
 
 

@@ -1,14 +1,14 @@
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-        PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        gcc \
-        libpq-dev \
+    build-essential \
+    gcc \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir -U pip \
@@ -19,7 +19,7 @@ RUN adduser --disabled-password --gecos "" appuser
 COPY --chown=appuser:appuser pyproject.toml /app/
 COPY --chown=appuser:appuser uv.lock /app/
 
-RUN uv sync --frozen --no-dev \
+RUN uv sync --frozen --no-dev --no-cache \
     && chown -R appuser:appuser /app/.venv
 
 COPY --chown=appuser:appuser app /app/app
