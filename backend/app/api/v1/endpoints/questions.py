@@ -48,7 +48,7 @@ async def list_favorite_questions(
     offset: int = Query(default=0, ge=0),
     user=Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> list[QuestionOut]:
+) -> list[FavoriteQuestionOut]:
     repo = QuestionFavoriteRepository(session)
     try:
         topic_enum = parse_enum(topic, Topic, "topic") if topic else None

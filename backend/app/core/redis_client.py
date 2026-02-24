@@ -28,13 +28,13 @@ class MemoryStore:
             if value is None:
                 return None
             payload, expires_at = value
-            if expires_at is not None and expires_at <= time.time():
+            if expires_at is not None and expires_at <= time.monotonic():
                 self._data.pop(key, None)
                 return None
             return payload
 
     async def set(self, key: str, value: str, ex: int | None = None) -> None:
-        expires_at = time.time() + ex if ex else None
+        expires_at = time.monotonic() + ex if ex else None
         async with self._lock:
             self._data[key] = (value, expires_at)
 
@@ -69,18 +69,17 @@ async def get_redis_real() -> redis_asyncio.Redis | None:
     if _redis is not None:
         return _redis
     if _redis_failed_at is not None:
-        if (time.time() - _redis_failed_at) < _REDIS_RETRY_INTERVAL:
+        if (time.monotonic() - _redis_failed_at) < _REDIS_RETRY_INTERVAL:
             return None
-        # Retry window reached — try again
     async with _redis_lock:
         if _redis is not None:
             return _redis
         if _redis_failed_at is not None:
-            if (time.time() - _redis_failed_at) < _REDIS_RETRY_INTERVAL:
+            if (time.monotonic() - _redis_failed_at) < _REDIS_RETRY_INTERVAL:
                 return None
         try:
             _redis = await _connect_redis()
-            _redis_failed_at = None  # reset on success
+            _redis_failed_at = None
         except Exception:
             settings = get_settings()
             if settings.ENV.lower() not in {"dev", "development", "local"}:
@@ -93,7 +92,7 @@ async def get_redis_real() -> redis_asyncio.Redis | None:
                 "Will retry in %ds.",
                 _REDIS_RETRY_INTERVAL,
             )
-            _redis_failed_at = time.time()
+            _redis_failed_at = time.monotonic()
             return None
     return _redis
 

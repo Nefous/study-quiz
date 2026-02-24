@@ -1,6 +1,7 @@
 from uuid import UUID
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.utils.enums import AttemptType, Difficulty, QuestionType, QuizMode, Topic
 
@@ -14,6 +15,14 @@ class QuizGenerateRequest(BaseModel):
     size: int | None = Field(default=None, gt=0, description="Number of questions to include in the quiz")
     limit: int | None = Field(default=None, gt=0, description="Alias for size, used with mistakes_review")
     attempt_id: UUID | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_size_limit(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            if values.get("size") is None and values.get("limit") is not None:
+                values["size"] = values["limit"]
+        return values
 
 
 class QuizQuestionOut(BaseModel):

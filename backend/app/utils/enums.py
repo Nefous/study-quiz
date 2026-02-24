@@ -1,4 +1,7 @@
-from enum import StrEnum
+from enum import Enum, StrEnum
+from typing import Type, TypeVar
+
+_E = TypeVar("_E", bound=Enum)
 
 
 class QuestionType(StrEnum):
@@ -29,8 +32,7 @@ class AttemptType(StrEnum):
     MISTAKES_REVIEW = "mistakes_review"
 
 
-def parse_enum(value: str, enum_cls, field: str):
-    """Parse a string into an enum member, raising ValueError on failure."""
+def parse_enum(value: str, enum_cls: Type[_E], field: str) -> _E:
     if not isinstance(value, str):
         raise ValueError(f"Invalid {field}")
     try:

@@ -16,10 +16,9 @@ router = APIRouter(prefix="/quiz")
 
 
 def _parse_topics(body: QuizGenerateRequest) -> list[Topic] | None:
-    """Parse and expand topics from the request body, handling Topic.RANDOM."""
     if body.topics is not None:
         if not body.topics:
-            raise HTTPException(status_code=400, detail="Invalid topics")
+            raise ValueError("Invalid topics")
         topics = list(body.topics)
         if Topic.RANDOM in topics:
             topics = [t for t in Topic if t != Topic.RANDOM]
@@ -34,7 +33,6 @@ def _parse_topics(body: QuizGenerateRequest) -> list[Topic] | None:
 def _build_meta(
     topics: list[Topic] | None, question_ids: list[str]
 ) -> tuple[str, dict]:
-    """Build topic_value and meta dict for attempt storage."""
     topic_value = "random"
     meta: dict = {}
     if topics:
@@ -62,12 +60,13 @@ async def generate_quiz(
 
     mode = body.mode or QuizMode.PRACTICE
 
-    if attempt_type != AttemptType.MISTAKES_REVIEW:
+    try:
         topics = _parse_topics(body)
-        if topics is None:
-            raise HTTPException(status_code=400, detail="Missing topic or topics")
-    else:
-        topics = _parse_topics(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if attempt_type != AttemptType.MISTAKES_REVIEW and topics is None:
+        raise HTTPException(status_code=400, detail="Missing topic or topics")
 
     topics = list(dict.fromkeys(topics)) if topics else None
     difficulty = body.difficulty
@@ -109,7 +108,7 @@ async def generate_quiz(
                         return response
             if difficulty is None:
                 difficulty = Difficulty.JUNIOR
-            topic = topics[0] if topics else None
+            topic = topics[0] if topics and len(topics) == 1 else None
             response = await service.generate_mistakes_review(
                 user_id=user.id,
                 topic=topic,
@@ -152,8 +151,6 @@ async def generate_quiz(
                 )
             response.attempt_id = attempt.id
             return response
-        if difficulty is None:
-            raise HTTPException(status_code=400, detail="Missing difficulty")
         response = await service.generate_quiz(
             topics=topics,
             difficulty=difficulty,

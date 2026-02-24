@@ -17,6 +17,7 @@ from app.repositories.attempt_answer_repo import AttemptAnswerRepository
 from app.repositories.question_repo import QuestionRepository
 from app.schemas.attempts import (
     AiReviewResponse,
+    AttemptAnswer,
     AttemptCreate,
     AttemptListResponse,
     AttemptSubmit,
@@ -59,7 +60,7 @@ def _to_out(attempt) -> AttemptOut:
 
 
 async def _recheck_exam_answers(
-    answers: list, question_repo: QuestionRepository
+    answers: list[AttemptAnswer], question_repo: QuestionRepository
 ) -> tuple[int, list[dict]]:
     """Score exam answers server-side. Returns (correct_count, answers_payload)."""
     question_ids: list[UUID] = []

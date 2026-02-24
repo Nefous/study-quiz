@@ -50,7 +50,7 @@ class QuizAttemptRepository:
         total = int(count_result.scalar_one())
         stmt = base.order_by(desc(QuizAttempt.created_at)).limit(limit).offset(offset)
         result = await self.session.execute(stmt)
-        return result.scalars().all(), total
+        return list(result.scalars().all()), total
 
     async def get_by_id(self, attempt_id) -> QuizAttempt | None:
         stmt = select(QuizAttempt).where(QuizAttempt.id == attempt_id)
@@ -187,10 +187,14 @@ class QuizAttemptRepository:
             attempt_dates = {d for d in all_dates if d is not None}
         current_streak = 0
         if attempt_dates:
+            today = datetime.now(timezone.utc).date()
             cursor = max(attempt_dates)
-            while cursor in attempt_dates:
-                current_streak += 1
-                cursor = cursor - timedelta(days=1)
+            if cursor < today - timedelta(days=1):
+                current_streak = 0
+            else:
+                while cursor in attempt_dates:
+                    current_streak += 1
+                    cursor = cursor - timedelta(days=1)
 
         eligible_topics = [item for item in by_topic if item["attempts"] >= 5]
         strongest_topic = None

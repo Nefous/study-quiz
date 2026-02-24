@@ -187,10 +187,44 @@ _SAFE_BUILTINS = {
     "sorted": sorted, "str": str, "sum": sum, "tuple": tuple, "zip": zip,
     "True": True, "False": False, "None": None,
 }
+"""Soft guardrail only — restricts direct builtin access but cannot prevent
+attribute traversal escapes.  Real isolation comes from process-level
+mitigations applied inside _exec_in_process."""
 
 
 def _exec_in_process(code: str, result_dict: dict[str, Any]) -> None:
-    """Target function for multiprocessing.Process — runs code in isolation."""
+    """Run *code* in an isolated child process.
+
+    Builtins are restricted as a soft guardrail but the true trust boundary is
+    the process itself.  Before executing user code we clear the environment,
+    close inherited file descriptors, and apply resource limits so a malicious
+    snippet cannot exfiltrate secrets or exhaust host resources.
+    """
+    import os
+    import sys
+    import resource as _resource
+
+    os.environ.clear()
+
+    for fd in range(3, 256):
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+    try:
+        _resource.setrlimit(_resource.RLIMIT_CPU, (2, 3))
+    except (ValueError, OSError):
+        pass
+    try:
+        _resource.setrlimit(_resource.RLIMIT_AS, (256 * 1024 * 1024, 256 * 1024 * 1024))
+    except (ValueError, OSError):
+        pass
+    try:
+        _resource.setrlimit(_resource.RLIMIT_FSIZE, (0, 0))
+    except (ValueError, OSError):
+        pass
+
     stdout_capture = io.StringIO()
     restricted_globals = {"__builtins__": _SAFE_BUILTINS.copy()}
     restricted_globals["__builtins__"]["print"] = (
@@ -210,20 +244,27 @@ def _exec_in_process(code: str, result_dict: dict[str, Any]) -> None:
 
 async def _run_code_check(code: str, expected_output: str) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        manager = multiprocessing.Manager()
-        result_dict = manager.dict(
-            {"exit_code": None, "stdout": "", "stderr": "", "timeout": False}
-        )
-        proc = multiprocessing.Process(
-            target=_exec_in_process, args=(code, result_dict)
-        )
-        proc.start()
-        proc.join(timeout=2)
-        if proc.is_alive():
-            proc.terminate()
-            proc.join(timeout=1)
-            result_dict["timeout"] = True
-        return dict(result_dict)
+        ctx = multiprocessing.get_context("spawn")
+        manager = ctx.Manager()
+        try:
+            result_dict = manager.dict(
+                {"exit_code": None, "stdout": "", "stderr": "", "timeout": False}
+            )
+            proc = ctx.Process(
+                target=_exec_in_process, args=(code, result_dict)
+            )
+            proc.start()
+            proc.join(timeout=2)
+            if proc.is_alive():
+                proc.terminate()
+                proc.join(timeout=1)
+                if proc.is_alive():
+                    proc.kill()
+                    proc.join(timeout=1)
+                result_dict["timeout"] = True
+            return dict(result_dict)
+        finally:
+            manager.shutdown()
 
     result = await asyncio.to_thread(_run)
     ok = (

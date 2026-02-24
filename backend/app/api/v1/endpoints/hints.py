@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.integrations.hint_chain import generate_hint
+from app.models.user import User
 from app.repositories.hint_usage_repo import HintUsageRepository
 from app.repositories.question_repo import QuestionRepository
 from app.repositories.quiz_attempt_repo import QuizAttemptRepository
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 async def hint(
     question_id: UUID,
     body: HintRequest,
-    user=Depends(get_current_user),
+    user: User = Depends(get_current_user),
     _rate_limiter=Depends(ai_hint_rate_limiter),
     session: AsyncSession = Depends(get_session),
 ) -> HintResponse:

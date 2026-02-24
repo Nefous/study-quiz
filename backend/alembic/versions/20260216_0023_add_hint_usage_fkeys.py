@@ -37,12 +37,7 @@ def upgrade() -> None:
             "ALTER TABLE hint_usages "
             "ADD CONSTRAINT fk_hint_usages_attempt_id "
             "FOREIGN KEY (attempt_id) REFERENCES quiz_attempts(id) "
-            "ON DELETE SET NULL NOT VALID"
-        )
-    )
-    op.execute(
-        sa.text(
-            "ALTER TABLE hint_usages VALIDATE CONSTRAINT fk_hint_usages_attempt_id"
+            "ON DELETE SET NULL"
         )
     )
 
@@ -51,12 +46,7 @@ def upgrade() -> None:
             "ALTER TABLE hint_usages "
             "ADD CONSTRAINT fk_hint_usages_question_id "
             "FOREIGN KEY (question_id) REFERENCES questions(id) "
-            "ON DELETE CASCADE NOT VALID"
-        )
-    )
-    op.execute(
-        sa.text(
-            "ALTER TABLE hint_usages VALIDATE CONSTRAINT fk_hint_usages_question_id"
+            "ON DELETE CASCADE"
         )
     )
 
