@@ -61,6 +61,8 @@ export default function History() {
   const offsetRef = useRef(0);
   const loadingMoreRef = useRef(false);
 
+  const activeRef = useRef(true);
+
   const loadHistory = useCallback(async () => {
     try {
       if (status !== "authed") return;
@@ -69,15 +71,17 @@ export default function History() {
         getAttemptStats(),
         listAttemptsPaginated(PAGE_SIZE, 0)
       ]);
+      if (!activeRef.current) return;
       setStats(statsResponse);
       setAttempts(attemptsResponse.items);
       setTotal(attemptsResponse.total);
       offsetRef.current = attemptsResponse.items.length;
       setError(null);
     } catch (err) {
+      if (!activeRef.current) return;
       setError(err instanceof Error ? err.message : "Failed to load history");
     } finally {
-      setLoading(false);
+      if (activeRef.current) setLoading(false);
     }
   }, [status]);
 
@@ -99,10 +103,10 @@ export default function History() {
   }, [total]);
 
   useEffect(() => {
-    let active = true;
+    activeRef.current = true;
     loadHistory();
     return () => {
-      active = false;
+      activeRef.current = false;
     };
   }, [loadHistory, status]);
 
@@ -558,7 +562,7 @@ export default function History() {
         )}
 
         {/* Load More */}
-        {attempts.length < total && (
+        {attempts.length < total && !(activeFilterCount > 0 && filteredAttempts.length === 0) && (
           <div className="flex justify-center pt-2">
             <Button
               variant="secondary"
@@ -566,7 +570,9 @@ export default function History() {
               onClick={loadMore}
               disabled={loadingMore}
             >
-              {loadingMore ? "Loading…" : `Load More (${attempts.length} of ${total})`}
+              {loadingMore ? "Loading…" : activeFilterCount > 0
+                ? `Load More (showing ${filteredAttempts.length} of ${total})`
+                : `Load More (${attempts.length} of ${total})`}
             </Button>
           </div>
         )}
