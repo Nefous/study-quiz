@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, select, type_coerce
+from sqlalchemy.dialects.postgresql import ARRAY, DATE
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.quiz_attempt import QuizAttempt
@@ -37,17 +38,19 @@ class QuizAttemptRepository:
         user_id,
         limit: int = 20,
         offset: int = 0,
-    ) -> list[QuizAttempt]:
-        stmt = (
+    ) -> tuple[list[QuizAttempt], int]:
+        base = (
             select(QuizAttempt)
             .where(QuizAttempt.user_id == user_id)
             .where(QuizAttempt.submitted_at.is_not(None))
-            .order_by(desc(QuizAttempt.created_at))
-            .limit(limit)
-            .offset(offset)
         )
+        count_result = await self.session.execute(
+            select(func.count()).select_from(base.subquery())
+        )
+        total = int(count_result.scalar_one())
+        stmt = base.order_by(desc(QuizAttempt.created_at)).limit(limit).offset(offset)
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return list(result.scalars().all()), total
 
     async def get_by_id(self, attempt_id) -> QuizAttempt | None:
         stmt = select(QuizAttempt).where(QuizAttempt.id == attempt_id)
@@ -108,9 +111,15 @@ class QuizAttemptRepository:
             func.avg(QuizAttempt.score_percent),
             func.max(QuizAttempt.score_percent),
             func.max(QuizAttempt.created_at),
+            type_coerce(
+                func.array_agg(func.distinct(func.date(QuizAttempt.created_at))),
+                ARRAY(DATE),
+            ),
         ).where(*filters)
         totals_result = await self.session.execute(totals_stmt)
-        total_attempts, avg_score, best_score, last_attempt_at = totals_result.one()
+        total_attempts, avg_score, best_score, last_attempt_at, all_dates = (
+            totals_result.one()
+        )
 
         attempts_stmt = (
             select(QuizAttempt.topic, QuizAttempt.score_percent, QuizAttempt.meta)
@@ -173,23 +182,19 @@ class QuizAttemptRepository:
         recent_attempts.reverse()
         recent_scores = [item["score_percent"] for item in recent_attempts]
 
-        streak_stmt = (
-            select(func.date(QuizAttempt.created_at))
-            .where(*filters)
-            .distinct()
-        )
-        streak_result = await self.session.execute(streak_stmt)
-        attempt_dates = {
-            row[0]
-            for row in streak_result.all()
-            if row and row[0] is not None
-        }
-        today = datetime.utcnow().date()
+        attempt_dates: set[date] = set()
+        if all_dates:
+            attempt_dates = {d for d in all_dates if d is not None}
         current_streak = 0
-        cursor = today
-        while cursor in attempt_dates:
-            current_streak += 1
-            cursor = cursor - timedelta(days=1)
+        if attempt_dates:
+            today = datetime.now(timezone.utc).date()
+            cursor = max(attempt_dates)
+            if cursor < today - timedelta(days=1):
+                current_streak = 0
+            else:
+                while cursor in attempt_dates:
+                    current_streak += 1
+                    cursor = cursor - timedelta(days=1)
 
         eligible_topics = [item for item in by_topic if item["attempts"] >= 5]
         strongest_topic = None

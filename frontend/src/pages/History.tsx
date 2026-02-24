@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart3,
@@ -10,7 +10,7 @@ import {
   Trophy,
   X
 } from "lucide-react";
-import { getAttemptStats, listAttempts, difficultyLabels, modeLabels, topicLabels } from "../api";
+import { getAttemptStats, listAttemptsPaginated, difficultyLabels, modeLabels, topicLabels } from "../api";
 import type { AttemptOut, AttemptStats, Difficulty, QuizMode, Topic } from "../api/types";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -40,12 +40,16 @@ const TOPIC_BADGE_LABELS: Record<string, string> = {
 const ALL_DIFFICULTIES: Difficulty[] = ["junior", "middle"];
 const ALL_MODES: QuizMode[] = ["practice", "exam"];
 
+const PAGE_SIZE = 20;
+
 export default function History() {
   const navigate = useNavigate();
   const { status } = useAuth();
   const [stats, setStats] = useState<AttemptStats | null>(null);
   const [attempts, setAttempts] = useState<AttemptOut[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -54,29 +58,59 @@ export default function History() {
     modes: []
   });
 
+  const offsetRef = useRef(0);
+  const loadingMoreRef = useRef(false);
+
+  const activeRef = useRef(true);
+
   const loadHistory = useCallback(async () => {
     try {
       if (status !== "authed") return;
       setLoading(true);
       const [statsResponse, attemptsResponse] = await Promise.all([
         getAttemptStats(),
-        listAttempts(50, 0)
+        listAttemptsPaginated(PAGE_SIZE, 0)
       ]);
+      if (!activeRef.current) return;
       setStats(statsResponse);
-      setAttempts(attemptsResponse);
+      setAttempts(attemptsResponse.items);
+      setTotal(attemptsResponse.total);
+      offsetRef.current = attemptsResponse.items.length;
       setError(null);
     } catch (err) {
+      if (!activeRef.current) return;
       setError(err instanceof Error ? err.message : "Failed to load history");
     } finally {
-      setLoading(false);
+      if (activeRef.current) setLoading(false);
     }
   }, [status]);
 
+  const loadMore = useCallback(async () => {
+    if (loadingMoreRef.current || offsetRef.current >= total) return;
+    try {
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+      const response = await listAttemptsPaginated(PAGE_SIZE, offsetRef.current);
+      if (!activeRef.current) return;
+      setAttempts((prev) => [...prev, ...response.items]);
+      offsetRef.current += response.items.length;
+      setTotal(response.total);
+    } catch (err) {
+      if (!activeRef.current) return;
+      setError(err instanceof Error ? err.message : "Failed to load more");
+    } finally {
+      if (activeRef.current) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
+    }
+  }, [total]);
+
   useEffect(() => {
-    let active = true;
+    activeRef.current = true;
     loadHistory();
     return () => {
-      active = false;
+      activeRef.current = false;
     };
   }, [loadHistory, status]);
 
@@ -301,7 +335,9 @@ export default function History() {
           <div>
             <h2 className="text-lg font-semibold text-white">Recent Attempts</h2>
             <p className="text-sm text-slate-400">
-              {filteredAttempts.length} of {attempts.length} attempts
+              {activeFilterCount > 0
+                ? `${filteredAttempts.length} of ${attempts.length} loaded (${total} total) matching filters`
+                : `${attempts.length} of ${total} total attempts`}
             </p>
           </div>
           <Button
@@ -527,6 +563,22 @@ export default function History() {
               </Button>
             }
           />
+        )}
+
+        {/* Load More */}
+        {attempts.length < total && !(activeFilterCount > 0 && filteredAttempts.length === 0) && (
+          <div className="flex justify-center pt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={loadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? "Loading…" : activeFilterCount > 0
+                ? `Load More (showing ${filteredAttempts.length} of ${total})`
+                : `Load More (${attempts.length} of ${total})`}
+            </Button>
+          </div>
         )}
       </Card>
     </div>

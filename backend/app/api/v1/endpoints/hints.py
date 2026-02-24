@@ -7,10 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.integrations.hint_chain import generate_hint
+from app.models.user import User
 from app.repositories.hint_usage_repo import HintUsageRepository
 from app.repositories.question_repo import QuestionRepository
 from app.repositories.quiz_attempt_repo import QuizAttemptRepository
 from app.schemas.hint import HintRequest, HintResponse
+from app.services.auth_service import get_current_user
 from app.utils.enums import QuestionType
 from app.utils.rate_limit import ai_hint_rate_limiter
 
@@ -22,6 +24,7 @@ logger = logging.getLogger(__name__)
 async def hint(
     question_id: UUID,
     body: HintRequest,
+    user: User = Depends(get_current_user),
     _rate_limiter=Depends(ai_hint_rate_limiter),
     session: AsyncSession = Depends(get_session),
 ) -> HintResponse:
@@ -32,7 +35,11 @@ async def hint(
     if body.attempt_id:
         attempt_repo = QuizAttemptRepository(session)
         attempt = await attempt_repo.get_by_id(body.attempt_id)
-        if attempt and attempt.mode == "exam":
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Attempt not found")
+        if attempt.user_id != user.id:
+            raise HTTPException(status_code=404, detail="Attempt not found")
+        if attempt.mode == "exam":
             raise HTTPException(status_code=403, detail="HINTS_DISABLED_IN_EXAM")
 
     repo = QuestionRepository(session)

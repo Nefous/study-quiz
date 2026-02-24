@@ -1,6 +1,7 @@
 from uuid import UUID
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.utils.enums import AttemptType, Difficulty, QuestionType, QuizMode, Topic
 
@@ -8,10 +9,24 @@ from app.utils.enums import AttemptType, Difficulty, QuestionType, QuizMode, Top
 class QuizGenerateRequest(BaseModel):
     topic: Topic | None = None
     topics: list[Topic] | None = None
-    difficulty: Difficulty
-    mode: QuizMode
+    difficulty: Difficulty | None = None
+    mode: QuizMode | None = None
     attempt_type: AttemptType | None = None
-    size: int | None = None
+    size: int | None = Field(default=None, gt=0, description="Number of questions to include in the quiz")
+    limit: int | None = Field(default=None, gt=0, description="Alias for size, used with mistakes_review")
+    attempt_id: UUID | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_size_limit(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            s = values.get("size")
+            l = values.get("limit")
+            if s is not None and l is not None and s != l:
+                raise ValueError("size and limit conflict: provide only one")
+            if s is None and l is not None:
+                values["size"] = l
+        return values
 
 
 class QuizQuestionOut(BaseModel):

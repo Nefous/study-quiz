@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +24,8 @@ def _apply_filters(
     if qtype:
         stmt = stmt.where(Question.type == qtype)
     if query:
-        stmt = stmt.where(Question.prompt.ilike(f"%{query}%"))
+        escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        stmt = stmt.where(Question.prompt.ilike(f"%{escaped}%", escape="\\"))
     if not include_archived:
         stmt = stmt.where(Question.archived_at.is_(None))
     return stmt
@@ -71,7 +72,7 @@ async def get_question(session: AsyncSession, question_id) -> Question | None:
 
 async def archive_question(session: AsyncSession, question: Question) -> Question:
     if question.archived_at is None:
-        question.archived_at = datetime.utcnow()
+        question.archived_at = datetime.now(timezone.utc)
         await session.commit()
         await session.refresh(question)
     return question

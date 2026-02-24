@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import cached
 from app.core.config import get_settings
+from app.core.exceptions import InsufficientQuestionsError
 import random
 
 from app.repositories.question_repo import QuestionRepository
@@ -44,7 +45,7 @@ class QuizService:
             ),
         )
         if available < requested_size:
-            raise ValueError("Not enough questions for the requested filter")
+            raise InsufficientQuestionsError("Not enough questions for the requested filter")
 
         picked = await repo.get_random_questions(
             topic=None,
@@ -83,15 +84,19 @@ class QuizService:
         if wrong_counts:
             ids = [item[0] for item in wrong_counts]
             weights = [item[1] or 1 for item in wrong_counts]
-            seen = set()
-            attempts = 0
-            while len(picked_ids) < min(requested_size, len(ids)) and attempts < 500:
-                attempts += 1
-                choice = random.choices(ids, weights=weights, k=1)[0]
-                if choice in seen:
-                    continue
-                seen.add(choice)
-                picked_ids.append(choice)
+            sample_size = min(requested_size, len(ids))
+            # Use random.choices with dedup to avoid duplicates from counts expansion
+            seen: set[uuid.UUID] = set()
+            max_attempts = sample_size * 10
+            attempt_count = 0
+            while len(seen) < sample_size and attempt_count < max_attempts:
+                batch = random.choices(ids, weights=weights, k=sample_size - len(seen))
+                for item in batch:
+                    seen.add(item)
+                    if len(seen) >= sample_size:
+                        break
+                attempt_count += 1
+            picked_ids = list(seen)[:sample_size]
 
         if not picked_ids:
             cache_key = f"quizstudy:qcount:{topic}:{difficulty}:None"
@@ -104,7 +109,9 @@ class QuizService:
                 ),
             )
             if available < requested_size:
-                raise ValueError("Not enough questions for the requested filter")
+                raise InsufficientQuestionsError(
+                    "Not enough questions for the requested filter"
+                )
             picked = await repo.get_random_questions(
                 topic=topic,
                 topics=[topic] if topic else None,

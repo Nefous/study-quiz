@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Any
 
@@ -8,9 +9,11 @@ from redis import asyncio as redis_asyncio
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 
 _redis: redis_asyncio.Redis | None = None
-_redis_failed = False
+_redis_failed_at: float | None = None
+_REDIS_RETRY_INTERVAL = 30  # seconds
 _redis_lock = asyncio.Lock()
 
 
@@ -25,13 +28,13 @@ class MemoryStore:
             if value is None:
                 return None
             payload, expires_at = value
-            if expires_at is not None and expires_at <= time.time():
+            if expires_at is not None and expires_at <= time.monotonic():
                 self._data.pop(key, None)
                 return None
             return payload
 
     async def set(self, key: str, value: str, ex: int | None = None) -> None:
-        expires_at = time.time() + ex if ex else None
+        expires_at = time.monotonic() + ex if ex else None
         async with self._lock:
             self._data[key] = (value, expires_at)
 
@@ -62,20 +65,34 @@ async def _connect_redis() -> redis_asyncio.Redis:
 
 
 async def get_redis_real() -> redis_asyncio.Redis | None:
-    global _redis, _redis_failed
+    global _redis, _redis_failed_at
     if _redis is not None:
         return _redis
-    if _redis_failed:
-        return None
+    if _redis_failed_at is not None:
+        if (time.monotonic() - _redis_failed_at) < _REDIS_RETRY_INTERVAL:
+            return None
     async with _redis_lock:
         if _redis is not None:
             return _redis
-        if _redis_failed:
-            return None
+        if _redis_failed_at is not None:
+            if (time.monotonic() - _redis_failed_at) < _REDIS_RETRY_INTERVAL:
+                return None
         try:
             _redis = await _connect_redis()
+            _redis_failed_at = None
         except Exception:
-            _redis_failed = True
+            settings = get_settings()
+            if settings.ENV.lower() not in {"dev", "development", "local"}:
+                raise RuntimeError(
+                    "Redis is required in production but connection failed. "
+                    "Set ENV=dev to allow MemoryStore fallback."
+                )
+            logger.critical(
+                "Redis unavailable — falling back to in-memory store. "
+                "Will retry in %ds.",
+                _REDIS_RETRY_INTERVAL,
+            )
+            _redis_failed_at = time.monotonic()
             return None
     return _redis
 
@@ -93,3 +110,4 @@ async def close_redis() -> None:
         return
     await _redis.close()
     _redis = None
+

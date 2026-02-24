@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
-import subprocess
 import asyncio
+import multiprocessing
 import re
+import threading
 from typing import Any
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -173,32 +175,96 @@ def _question_to_payload(question: Question) -> dict[str, Any]:
     }
 
 
+_SAFE_BUILTINS = {
+    "abs": abs, "all": all, "any": any, "bin": bin, "bool": bool,
+    "bytes": bytes, "chr": chr, "dict": dict, "divmod": divmod,
+    "enumerate": enumerate, "filter": filter, "float": float,
+    "format": format, "frozenset": frozenset, "hash": hash, "hex": hex,
+    "int": int, "iter": iter, "len": len, "list": list, "map": map,
+    "max": max, "min": min, "next": next, "oct": oct, "ord": ord,
+    "pow": pow, "print": print, "range": range, "repr": repr,
+    "reversed": reversed, "round": round, "set": set, "slice": slice,
+    "sorted": sorted, "str": str, "sum": sum, "tuple": tuple, "zip": zip,
+    "True": True, "False": False, "None": None,
+}
+"""Soft guardrail only — restricts direct builtin access but cannot prevent
+attribute traversal escapes.  Real isolation comes from process-level
+mitigations applied inside _exec_in_process."""
+
+
+def _exec_in_process(code: str, result_dict: dict[str, Any]) -> None:
+    """Run *code* in an isolated child process.
+
+    Builtins are restricted as a soft guardrail but the true trust boundary is
+    the process itself.  Before executing user code we clear the environment,
+    close inherited file descriptors, and apply resource limits so a malicious
+    snippet cannot exfiltrate secrets or exhaust host resources.
+    """
+    import os
+    import sys
+    import resource as _resource
+
+    os.environ.clear()
+
+    for fd in range(3, 256):
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+    try:
+        _resource.setrlimit(_resource.RLIMIT_CPU, (2, 3))
+    except (ValueError, OSError):
+        pass
+    try:
+        _resource.setrlimit(_resource.RLIMIT_AS, (256 * 1024 * 1024, 256 * 1024 * 1024))
+    except (ValueError, OSError):
+        pass
+    try:
+        _resource.setrlimit(_resource.RLIMIT_FSIZE, (0, 0))
+    except (ValueError, OSError):
+        pass
+
+    stdout_capture = io.StringIO()
+    restricted_globals = {"__builtins__": _SAFE_BUILTINS.copy()}
+    restricted_globals["__builtins__"]["print"] = (
+        lambda *args, **kwargs: print(
+            *args, **{**kwargs, "file": stdout_capture}
+        )
+    )
+    try:
+        exec(code, restricted_globals)  # noqa: S102
+        result_dict["exit_code"] = 0
+    except Exception as exc:
+        result_dict["exit_code"] = 1
+        result_dict["stderr"] = str(exc)[:10000]
+    finally:
+        result_dict["stdout"] = stdout_capture.getvalue()[:10000]
+
+
 async def _run_code_check(code: str, expected_output: str) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
+        ctx = multiprocessing.get_context("spawn")
+        manager = ctx.Manager()
         try:
-            completed = subprocess.run(
-                ["python", "-I", "-c", code],
-                capture_output=True,
-                text=True,
-                timeout=2,
+            result_dict = manager.dict(
+                {"exit_code": None, "stdout": "", "stderr": "", "timeout": False}
             )
-            stdout = (completed.stdout or "")[:10000]
-            stderr = (completed.stderr or "")[:10000]
-            return {
-                "exit_code": completed.returncode,
-                "stdout": stdout,
-                "stderr": stderr,
-                "timeout": False,
-            }
-        except subprocess.TimeoutExpired as exc:
-            stdout = (exc.stdout or "")[:10000] if exc.stdout else ""
-            stderr = (exc.stderr or "")[:10000] if exc.stderr else ""
-            return {
-                "exit_code": None,
-                "stdout": stdout,
-                "stderr": stderr,
-                "timeout": True,
-            }
+            proc = ctx.Process(
+                target=_exec_in_process, args=(code, result_dict)
+            )
+            proc.start()
+            proc.join(timeout=2)
+            if proc.is_alive():
+                proc.terminate()
+                proc.join(timeout=1)
+                if proc.is_alive():
+                    proc.kill()
+                    proc.join(timeout=1)
+                result_dict["timeout"] = True
+            return dict(result_dict)
+        finally:
+            manager.shutdown()
 
     result = await asyncio.to_thread(_run)
     ok = (
@@ -249,21 +315,21 @@ async def validate_candidate(
         await session.refresh(candidate)
         return candidate
 
-    questions = await session.execute(select(Question))
-    for question in questions.scalars().all():
-        question_payload = _question_to_payload(question)
-        question_hash = _simhash64(_stable_string(question_payload))
-        if question_hash == simhash:
-            report["dedupe"] = {
-                "ok": False,
-                "reason": "duplicate_question",
-                "question_id": str(question.id),
-            }
-            candidate.status = "failed"
-            candidate.validation_report_json = report
-            await session.commit()
-            await session.refresh(candidate)
-            return candidate
+    dup_q_result = await session.execute(
+        select(Question).where(Question.simhash == simhash).limit(1)
+    )
+    dup_question = dup_q_result.scalar_one_or_none()
+    if dup_question:
+        report["dedupe"] = {
+            "ok": False,
+            "reason": "duplicate_question",
+            "question_id": str(dup_question.id),
+        }
+        candidate.status = "failed"
+        candidate.validation_report_json = report
+        await session.commit()
+        await session.refresh(candidate)
+        return candidate
 
     report["dedupe"] = {"ok": True}
 
@@ -362,7 +428,7 @@ async def approve_candidate(
         return candidate
     candidate.status = "approved"
     candidate.approved_by_user_id = user_id
-    candidate.approved_at = datetime.utcnow()
+    candidate.approved_at = datetime.now(timezone.utc)
     await session.commit()
     await session.refresh(candidate)
     return candidate
@@ -377,7 +443,7 @@ async def reject_candidate(
     moderation = {
         "rejected": True,
         "reason": reason,
-        "at": datetime.utcnow().isoformat(),
+        "at": datetime.now(timezone.utc).isoformat(),
         "by": str(user_id),
     }
     candidate.validation_report_json = _merge_report(
@@ -512,12 +578,13 @@ async def publish_candidate(
     if not question:
         seed_payload = f"{fields['topic']}|{fields['difficulty']}|{fields['type']}|{fields['prompt']}|{fields.get('code') or ''}"
         seed_key = hashlib.sha256(seed_payload.encode("utf-8")).hexdigest()[:64]
-        question = Question(**fields, seed_key=seed_key)
+        q_simhash = _simhash64(_stable_string(normalized))
+        question = Question(**fields, seed_key=seed_key, simhash=q_simhash)
         session.add(question)
         await session.flush()
 
     candidate.status = "published"
-    candidate.published_at = datetime.utcnow()
+    candidate.published_at = datetime.now(timezone.utc)
     candidate.validation_report_json = _merge_report(
         candidate.validation_report_json,
         {"published": {"question_id": str(question.id)}},

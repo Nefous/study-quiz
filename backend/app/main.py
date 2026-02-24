@@ -2,7 +2,7 @@ import importlib
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -73,29 +73,33 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=settings.ALLOW_CREDENTIALS,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+    max_age=86400,
 )
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
-@app.get("/__debug")
-async def debug_info() -> dict:
-    routes: list[str] = []
-    has_hint_route = False
-    for route in app.routes:
-        if isinstance(route, APIRoute):
-            methods = sorted(method for method in route.methods or [] if method != "HEAD")
-            for method in methods:
-                routes.append(f"{method} {route.path}")
-            if "/hint" in route.path:
-                has_hint_route = True
-    return {
-        "api_v1_prefix": settings.API_V1_PREFIX,
-        "cors_origins": settings.CORS_ORIGINS,
-        "has_hint_route": has_hint_route,
-        "routes": routes,
-    }
+if settings.ENV.lower() in {"dev", "development", "local"}:
+    from app.services.auth_service import get_admin_user
+
+    @app.get("/__debug")
+    async def debug_info(_admin=Depends(get_admin_user)) -> dict:
+        routes: list[str] = []
+        has_hint_route = False
+        for route in app.routes:
+            if isinstance(route, APIRoute):
+                methods = sorted(method for method in route.methods or [] if method != "HEAD")
+                for method in methods:
+                    routes.append(f"{method} {route.path}")
+                if "/hint" in route.path:
+                    has_hint_route = True
+        return {
+            "api_v1_prefix": settings.API_V1_PREFIX,
+            "cors_origins": settings.CORS_ORIGINS,
+            "has_hint_route": has_hint_route,
+            "routes": routes,
+        }
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -111,11 +115,13 @@ async def validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
 ) -> JSONResponse:
+    is_auth_route = request.url.path.startswith(f"{settings.API_V1_PREFIX}/auth")
+    logged_body = "[REDACTED]" if is_auth_route else exc.body
     logger.warning(
         "validation error path=%s errors=%s body=%s",
         request.url.path,
         exc.errors(),
-        exc.body,
+        logged_body,
     )
     include_details = settings.LOG_LEVEL.lower() == "debug"
     if include_details:

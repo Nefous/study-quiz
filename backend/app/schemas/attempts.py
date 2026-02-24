@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class AttemptAnswer(BaseModel):
-    question_id: str
+    question_id: UUID
     selected_answer: str = Field(alias="user_answer")
     is_correct: bool
 
@@ -71,6 +71,11 @@ class AttemptOut(BaseModel):
     score_percent: int
 
     model_config = {"from_attributes": True}
+
+
+class AttemptListResponse(BaseModel):
+    items: list[AttemptOut]
+    total: int
 
 
 class AttemptTopicStats(BaseModel):

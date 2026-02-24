@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     GROQ_REVIEW_TEMPERATURE: float = Field(default=0.4)
     GROQ_REVIEW_MAX_TOKENS: int = Field(default=800)
     ADMIN_EMAILS: list[str] = Field(default=[])
+    TRUSTED_PROXY_IPS: set[str] = Field(default_factory=set)
     ENV: str = Field(default="prod")
 
     model_config = SettingsConfigDict(
@@ -52,6 +53,20 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
     )
+
+    @field_validator("TRUSTED_PROXY_IPS", mode="before")
+    @classmethod
+    def _parse_trusted_proxy_ips(cls, value):
+        if value is None:
+            return set()
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return set()
+            return {item.strip() for item in raw.split(",") if item.strip()}
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return {str(item).strip() for item in value if str(item).strip()}
+        return set()
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -133,5 +148,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Cached singleton. Tests call ``get_settings.cache_clear()`` in conftest."""
     return Settings()
 
